@@ -1,0 +1,127 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{{ 'Sửa Tổ Chức' if organization else 'Thêm Tổ Chức' }}{% endblock %}
+
+{% block content %}
+<div class="form-layout">
+    <div id="crudForm">
+        <input type="hidden" id="nodeId" value="{{ organization.id if organization else '' }}">
+        
+        <div class="form-grid">
+            <div>
+                <div class="form-group">
+                    <label>Tên tổ chức <span style="color:red;">*</span></label>
+                    <input type="text" id="nodeName" value="{{ organization.name if organization else '' }}" placeholder="VD: Đảng Cộng sản Việt Nam" required>
+                </div>
+                <div class="form-group">
+                    <label>Loại tổ chức</label>
+                    <input type="text" id="nodeType" value="{{ organization.type if organization else '' }}" placeholder="VD: Chính trị, Quân sự...">
+                </div>
+            </div>
+            <div>
+                <div class="form-group">
+                    <label>Trụ sở chính</label>
+                    <input type="text" id="nodeHeadquarters" value="{{ organization.headquarters if organization else '' }}" placeholder="VD: Hà Nội">
+                </div>
+                <div class="form-group">
+                    <label>Năm thành lập</label>
+                    <input type="number" id="nodeFoundedYear" value="{{ organization.founded_year if organization else '' }}" placeholder="VD: 1930">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <label>Mô tả chi tiết</label>
+            <textarea id="nodeDescription" rows="6" placeholder="Mô tả tóm tắt về lịch sử, mục đích của tổ chức...">{{ organization.description if organization else '' }}</textarea>
+        </div>
+
+        <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; text-align: right;">
+            <a href="/admin/organizationAdmin" class="btn-cancel" style="background: #95a5a6; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; margin-right: 10px;"><i class="fas fa-times"></i> Hủy bỏ</a>
+            <button class="btn-save" onclick="saveData()" style="background: #2ecc71; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;"><i class="fas fa-save"></i> Lưu dữ liệu</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function saveData() {
+    // Xóa lỗi cũ
+        document.querySelectorAll('.error-msg').forEach(el => el.remove());
+        const fields = ['nodeName', 'nodeType', 'nodeHeadquarters', 'nodeFoundedYear', 'nodeDescription'];
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.borderColor = '#ccc';
+        });
+
+        let nameVal = document.getElementById('nodeName').value.trim();
+        let typeVal = document.getElementById('nodeType').value.trim();
+        let headquartersVal = document.getElementById('nodeHeadquarters').value.trim();
+        let foundedYearVal = document.getElementById('nodeFoundedYear').value.trim();
+        let descVal = document.getElementById('nodeDescription').value.trim();
+
+        let isValid = true;
+        let firstFocus = null;
+
+        function showError(id, message) {
+            const el = document.getElementById(id);
+            el.style.borderColor = '#e74c3c';
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-msg';
+            errorDiv.style.color = '#e74c3c';
+            errorDiv.style.fontSize = '12.5px';
+            errorDiv.style.marginTop = '6px';
+            errorDiv.style.fontStyle = 'italic';
+            errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + message;
+            el.parentNode.appendChild(errorDiv);
+            if (!firstFocus) firstFocus = el;
+            isValid = false;
+        }
+
+        if (!nameVal) showError('nodeName', 'Vui lòng nhập Tên tổ chức!');
+
+        if (!isValid) {
+            firstFocus.focus();
+            return;
+        }
+
+        // Gán "Không rõ" cho các trường không bắt buộc
+        if (!typeVal) typeVal = 'Không rõ';
+        if (!headquartersVal) headquartersVal = 'Không rõ';
+        if (!foundedYearVal) foundedYearVal = 'Không rõ';
+        if (!descVal) descVal = 'Không rõ';
+
+        const saveBtn = document.querySelector('.btn-save');
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+        saveBtn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('id', document.getElementById('nodeId').value);
+        formData.append('name', nameVal);
+        formData.append('type', typeVal);
+        formData.append('founded_year', foundedYearVal);
+        formData.append('description', descVal);
+        formData.append('headquarters', headquartersVal);
+
+        fetch('/admin/api/organizations', {
+            method: document.getElementById('nodeId').value ? 'PUT' : 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '/admin/organizationAdmin';
+            } else {
+                alert("Lỗi: " + data.error);
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
+                saveBtn.disabled = false;
+            }
+        })
+        .catch(err => {
+            alert("Lỗi kết nối API: " + err);
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
+            saveBtn.disabled = false;
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Sao lưu & Phục hồi Dữ liệu{% endblock %}
+{% block page_title %}Sao lưu & Phục hồi Dữ liệu{% endblock %}
+
+{% block content %}
+<div class="admin-layout" style="max-width: 800px; margin: 0 auto; background: transparent; box-shadow: none; padding: 0;">
+    
+    <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); margin-bottom: 30px;">
+        <h3 style="color: #1e3c72; margin-top: 0; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-file-export"></i> Xuất dữ liệu (Backup)
+        </h3>
+        <p style="color: #666; margin-bottom: 20px;">
+            Tải xuống toàn bộ dữ liệu hiện tại của hệ thống (Tài khoản Admin, Nhân vật, Sự kiện, Tổ chức, Hiệp định...) thành 1 file Excel duy nhất chứa nhiều sheet.
+        </p>
+        <button id="btnExport" onclick="exportData()" class="btn" style="background: #2ecc71; padding: 12px 25px;">
+            <i class="fas fa-download"></i> Tải xuống file Excel
+        </button>
+    </div>
+
+    <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05);">
+        <h3 style="color: #e74c3c; margin-top: 0; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-file-import"></i> Nhập dữ liệu (Restore)
+        </h3>
+        
+        <div style="background: #fff3f3; border-left: 4px solid #e74c3c; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+            <strong style="color: #c0392b;"><i class="fas fa-exclamation-triangle"></i> Cảnh báo:</strong> 
+            Việc tải lên file Excel sẽ ghi đè hoặc bổ sung vào dữ liệu hiện tại. Hãy đảm bảo file Excel của bạn đúng định dạng chuẩn của hệ thống (file tải xuống từ hệ thống).
+        </div>
+        
+        <div class="form-group">
+            <input type="file" id="importFile" accept=".xlsx" style="border: 2px dashed #bdc3c7; padding: 15px; width: 100%; border-radius: 8px; margin-bottom: 15px; background: #f8f9fa; cursor: pointer;">
+        </div>
+        
+        <button id="btnImport" onclick="importData()" class="btn" style="background: #e74c3c; padding: 12px 25px;">
+            <i class="fas fa-upload"></i> Nhập & Khôi phục dữ liệu
+        </button>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Hàm gọi API để tải xuống file
+    function exportData() {
+        const btn = document.getElementById('btnExport');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file Excel...';
+        btn.disabled = true;
+        
+        // Tải file trực tiếp
+        window.location.href = '/admin/api/backup/export';
+        
+        // Khôi phục nút sau một khoảng thời gian (đề phòng trường hợp không có redirect)
+        setTimeout(() => {
+            btn.innerHTML = '<i class="fas fa-download"></i> Tải xuống file Excel';
+            btn.disabled = false;
+        }, 3000);
+    }
+    
+    // Hàm gọi API để tải file lên
+    function importData() {
+        const fileInput = document.getElementById('importFile');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            alert('Vui lòng chọn file Excel để nhập!');
+            return;
+        }
+
+        if (!confirm('Bạn có chắc chắn muốn nhập dữ liệu từ file này? Hệ thống có thể mất vài chục giây để xử lý.')) {
+            return;
+        }
+
+        const btn = document.getElementById('btnImport');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý & lưu vào Database...';
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/admin/api/backup/import', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Nhập dữ liệu thành công! \n' + (data.message || ''));
+                fileInput.value = ''; 
+            } else {
+                alert('Lỗi: ' + data.error);
+            }
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        })
+        .catch(error => {
+            alert('Lỗi kết nối API: ' + error.message);
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+    }
+</script>
+{% endblock %}

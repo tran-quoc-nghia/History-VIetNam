@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Đăng nhập hệ thống Quản trị{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        max-width: 400px;
+        margin: 100px auto;
+        background: white;
+        padding: 40px;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    .login-container h2 {
+        color: #1e3c72;
+        margin-bottom: 20px;
+    }
+    .form-group {
+        margin-bottom: 20px;
+        text-align: left;
+    }
+    .form-group input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 16px;
+        outline: none;
+        box-sizing: border-box;
+    }
+    .form-group input:focus {
+        border-color: #2a5298;
+    }
+    .forgot-pwd-link {
+        display: block;
+        text-align: right;
+        margin-top: -10px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        color: #3498db;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .forgot-pwd-link:hover {
+        color: #1e3c72;
+        text-decoration: underline;
+    }
+    .btn-login {
+        width: 100%;
+        padding: 12px;
+        background: #2a5298;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+    .btn-login:hover {
+        background: #1e3c72;
+    }
+    .error-msg {
+        color: #e74c3c;
+        margin-bottom: 15px;
+        font-size: 14px;
+        background: #fdf2f2;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    .flash-msg {
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 5px;
+        font-size: 14px;
+        text-align: left;
+    }
+    .flash-msg.success { background: #eafaf1; color: #27ae60; border-left: 4px solid #27ae60; }
+    .flash-msg.error { background: #fde8e8; color: #e74c3c; border-left: 4px solid #e74c3c; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <i class="fas fa-user-shield" style="font-size: 50px; color: #1e3c72; margin-bottom: 15px;"></i>
+    <h2>Đăng nhập Quản trị</h2>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-msg {{ category }}"><i class="fas fa-info-circle"></i> {{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if error %}
+        <div class="error-msg"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>
+    {% endif %}
+    
+    <form method="POST" action="/admin/login">
+        <div class="form-group">
+            <input type="email" name="email" placeholder="Địa chỉ Email" required>
+        </div>
+        <div class="form-group">
+            <input type="password" name="password" placeholder="Mật khẩu" required>
+        </div>
+        
+        <a href="/admin/forgot-password" class="forgot-pwd-link">Quên mật khẩu?</a>
+
+        <button type="submit" class="btn-login"><i class="fas fa-sign-in-alt"></i> Đăng nhập</button>
+    </form>
+    
+    <a href="/" style="display: block; margin-top: 25px; color: #7f8c8d; text-decoration: none; font-size: 14px;">
+        <i class="fas fa-arrow-left"></i> Quay lại trang chủ
+    </a>
+</div>
+{% endblock %}

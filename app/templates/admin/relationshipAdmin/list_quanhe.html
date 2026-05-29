@@ -1,0 +1,190 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Quản lý Mối Quan Hệ{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+    <div class="admin-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 10px; display: flex; align-items: center;">
+        <h2 style="margin: 0;"><i class="fas fa-link"></i> Quản lý Mối Quan Hệ</h2>
+        <span id="relationCount" class="count-badge">Tổng: {{ relationships|length if relationships else 0 }} mối quan hệ</span>
+    </div>
+
+    <div class="table-toolbar">
+        <div class="search-wrapper">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Tìm tên thực thể nguồn, đích hoặc loại quan hệ...">
+        </div>
+        <a href="/admin/relationshipAdmin/add" class="btn-add"><i class="fas fa-plus"></i> Thêm mới</a>
+    </div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 30%;">Thực thể nguồn</th>
+                <th style="width: 25%;">Loại quan hệ</th>
+                <th style="width: 30%;">Thực thể đích</th>
+                <th style="width: 15%; text-align: center;">Thao tác</th>
+            </tr>
+        </thead>
+        <tbody id="dataTableBody">
+            {% if relationships %}
+                {% for rel in relationships %}
+                <tr class="data-row">
+                    <td class="search-source">
+                        <strong>{{ rel.source_name or rel.source_id }}</strong>
+                        <br>
+                        <span class="node-tag badge badge-{{ rel.source_type }}">{{ label_mapping.get(rel.source_type, rel.source_type) }}</span>
+                    </td>
+
+                    <td class="search-rel" style="font-weight: bold; color: #16a085;" title="{{ rel.rel_type }}">
+                        {{ rel_mapping.get(rel.rel_type, rel.rel_type) }}
+                    </td>
+
+                    <td class="search-target">
+                        <strong>{{ rel.target_name or rel.target_id }}</strong>
+                        <br>
+                        <span class="node-tag badge badge-{{ rel.target_type }}">{{ label_mapping.get(rel.target_type, rel.target_type) }}</span>
+                    </td>
+                    
+                    <td style="text-align: center;">
+                        <button class="btn-action btn-delete" onclick="deleteData('{{ rel.source_id }}', '{{ rel.target_id }}', '{{ rel.rel_type }}')" title="Xóa"><i class="fas fa-trash"></i> Xóa</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr class="no-data"><td colspan="4" style="text-align:center;">Không có dữ liệu</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+    
+    <div id="paginationContainer" class="pagination"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function deleteData(sourceId, targetId, relType) {
+        if (confirm(`Bạn có chắc chắn muốn xóa mối quan hệ [${relType}] này?`)) {
+            fetch('/admin/api/relationships', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source_id: sourceId, target_id: targetId, rel_type: relType })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else { 
+                    alert('Lỗi: ' + (data.error || 'Lỗi không xác định')); 
+                }
+            }).catch(err => alert('Lỗi kết nối! ' + err));
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // TÌM KIẾM & PHÂN TRANG JAVASCRIPT
+        const tableBody = document.getElementById('dataTableBody');
+        if (!tableBody) return;
+
+        const rows = Array.from(tableBody.querySelectorAll('tr.data-row'));
+        const searchInput = document.getElementById('searchInput');
+        const paginationContainer = document.getElementById('paginationContainer');
+        const countBadge = document.getElementById('relationCount');
+        
+        let currentPage = 1;
+        const rowsPerPage = 15; // Mối quan hệ có thể hiển thị nhiều hơn (15 dòng)
+        let filteredRows = [...rows];
+
+        function renderTable() {
+            // Ẩn tất cả các dòng
+            rows.forEach(row => row.style.display = 'none');
+            
+            if (filteredRows.length === 0) {
+                paginationContainer.innerHTML = '';
+                return;
+            }
+
+            // Tính toán index của trang hiện tại
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = startIndex + rowsPerPage;
+            
+            // Hiển thị các dòng trong trang hiện tại
+            const pageRows = filteredRows.slice(startIndex, endIndex);
+            pageRows.forEach(row => row.style.display = '');
+
+            renderPagination();
+        }
+
+        function renderPagination() {
+            if (!paginationContainer) return;
+            paginationContainer.innerHTML = '';
+            
+            const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+            if (totalPages <= 1) return;
+
+            // Nút Prev
+            const prevBtn = document.createElement('button');
+            prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            prevBtn.className = 'page-btn ' + (currentPage === 1 ? 'disabled' : '');
+            prevBtn.onclick = () => { if(currentPage > 1) { currentPage--; renderTable(); } };
+            paginationContainer.appendChild(prevBtn);
+
+            // Các số trang
+            for (let i = 1; i <= totalPages; i++) {
+                // Rút gọn trang nếu quá nhiều
+                if(totalPages > 7 && i !== 1 && i !== totalPages && Math.abs(i - currentPage) > 1) {
+                    if (Math.abs(i - currentPage) === 2) {
+                        const dots = document.createElement('span');
+                        dots.innerHTML = '...';
+                        dots.style.padding = '5px 10px';
+                        paginationContainer.appendChild(dots);
+                    }
+                    continue;
+                }
+
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.className = 'page-btn ' + (currentPage === i ? 'active' : '');
+                btn.onclick = () => { currentPage = i; renderTable(); };
+                paginationContainer.appendChild(btn);
+            }
+
+            // Nút Next
+            const nextBtn = document.createElement('button');
+            nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            nextBtn.className = 'page-btn ' + (currentPage === totalPages ? 'disabled' : '');
+            nextBtn.onclick = () => { if(currentPage < totalPages) { currentPage++; renderTable(); } };
+            paginationContainer.appendChild(nextBtn);
+        }
+
+        // Lắng nghe sự kiện tìm kiếm
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                const term = e.target.value.toLowerCase();
+                
+                filteredRows = rows.filter(row => {
+                    const sourceText = row.querySelector('.search-source').textContent.toLowerCase();
+                    const targetText = row.querySelector('.search-target').textContent.toLowerCase();
+                    const relText = row.querySelector('.search-rel').textContent.toLowerCase();
+                    
+                    // Tìm kiếm toàn diện (Nguồn, Đích, hoặc Tên mối quan hệ)
+                    return sourceText.includes(term) || targetText.includes(term) || relText.includes(term);
+                });
+                
+                // Cập nhật lại số lượng hiển thị trên Badge
+                if (term === '') {
+                    countBadge.innerHTML = `Tổng: ${rows.length} mối quan hệ`;
+                } else {
+                    countBadge.innerHTML = `Tìm thấy: ${filteredRows.length} / ${rows.length}`;
+                }
+
+                currentPage = 1; // Reset về trang đầu tiên
+                renderTable();
+            });
+        }
+
+        // Khởi chạy khi load trang
+        if (rows.length > 0) renderTable();
+    });
+</script>
+{% endblock %}

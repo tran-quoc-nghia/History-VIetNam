@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}{{ country.name }} - Lịch sử Việt Nam{% endblock %}
+
+{% block content %}
+<div class="container" style="background: transparent; box-shadow: none; padding-top: 20px;">
+    <a href="javascript:history.back()" class="back-button" style="margin-bottom: 25px;">
+        <i class="fas fa-arrow-left"></i> Quay lại danh sách
+    </a>
+
+    <div class="detail-container">
+        <!-- Banner quốc gia với các ô thông tin ngang hàng -->
+        <div class="country-hero">
+            <div class="country-hero-content">
+                <div class="country-hero-icon">
+                    <i class="fas fa-flag"></i>
+                </div>
+                <h1>{{ country.name }}</h1>
+                <div class="country-details-row">
+                    <div class="country-detail-item">
+                        <i class="fas fa-city"></i>
+                        <span class="label">Thủ đô</span>
+                        <span class="value">{{ country.capital or 'Chưa rõ' }}</span>
+                    </div>
+                    <div class="country-detail-item">
+                        <i class="fas fa-globe"></i>
+                        <span class="label">Khu vực</span>
+                        <span class="value">{{ country.region or 'Chưa rõ' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mô tả -->
+        {% if country.description %}
+        <div class="description-box desc-country">
+            <h3><i class="fas fa-info-circle"></i> Giới thiệu</h3>
+            <p>{{ country.description }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Lãnh đạo & Đại diện -->
+        {% if persons %}
+        <div class="related-section">
+            <h3><i class="fas fa-user-tie"></i> Lãnh đạo & Đại diện ({{ persons|length }})</h3>
+            <div class="related-list">
+                {% for person in persons %}
+                <a href="/person/detail/{{ person.name | urlencode }}" class="related-item hover-person">
+                    <div>
+                        <strong>{{ person.name }}</strong>
+                        <small style="display: block; margin-top: 4px;">
+                            {% if person.role == 'Lãnh đạo' %}
+                                <span class="role-badge leader"><i class="fas fa-crown"></i> Lãnh đạo</span>
+                            {% elif person.role == 'Đại diện' %}
+                                <span class="role-badge representative"><i class="fas fa-user-check"></i> Đại diện</span>
+                            {% else %}
+                                <span class="role-badge default"><i class="fas fa-tag"></i> {{ person.role }}</span>
+                            {% endif %}
+                        </small>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Tổ chức trực thuộc -->
+        {% if organizations %}
+        <div class="related-section">
+            <h3><i class="fas fa-building"></i> Tổ chức trực thuộc ({{ organizations|length }})</h3>
+            <div class="related-list">
+                {% for org in organizations %}
+                <a href="/organization/detail/{{ org.name | urlencode }}" class="related-item hover-organization">
+                    <div>
+                        <strong>{{ org.name }}</strong>
+                        <small style="display: block; color: #7f8c8d; margin-top: 4px;">{{ org.role or 'Tổ chức trực thuộc' }}</small>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Sự kiện liên quan -->
+        {% if events %}
+        <div class="related-section">
+            <h3><i class="fas fa-calendar-alt"></i> Sự kiện liên quan ({{ events|length }})</h3>
+            <div class="related-list">
+                {% for event in events %}
+                <a href="/event/detail/{{ event.name | urlencode }}" class="related-item hover-event">
+                    <div>
+                        <strong>{{ event.name }}</strong>
+                        <small style="display: block; color: #7f8c8d; margin-top: 4px;">
+                            {% if event.start_time %}
+                                <i class="far fa-calendar"></i> <span class="format-date">{{ event.start_time | default('Chưa cập nhật', true) }}</span>
+                            {% endif %}
+                            {% if event.role %}
+                                • {{ event.role }}
+                            {% endif %}
+                        </small>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Đồ thị tri thức -->
+        <div class="detail-graph">
+            <h3><i class="fas fa-project-diagram"></i> Đồ thị tri thức (Knowledge Graph)</h3>
+            <div id="graphContainer" class="graph-container"></div>
+            <div class="graph-legend">
+                <span><span class="dot" style="background: #e74c3c;"></span> Nhân vật</span>
+                <span><span class="dot" style="background: #f39c12;"></span> Sự kiện</span>
+                <span><span class="dot" style="background: #2ecc71;"></span> Địa điểm</span>
+                <span><span class="dot" style="background: #3498db;"></span> Tổ chức</span>
+                <span><span class="dot" style="background: #9b59b6;"></span> Hiệp định</span>
+                <span><span class="dot" style="background: #9bafaa;"></span> Quốc gia</span>
+                <span><span class="dot" style="background: #87ac0f;"></span> Thời kỳ</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/graph.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.format-date').forEach(el => {
+            const rawDate = el.innerText.trim();
+            if (rawDate && rawDate !== 'Chưa cập nhật' && !rawDate.includes('TCN')) {
+                if(typeof window.formatVNTime === 'function'){
+                    el.innerText = window.formatVNTime(rawDate);
+                }
+            }
+        });
+
+        if (typeof window.loadGraphData === 'function') {
+            window.loadGraphData('{{ country.name }}', 2, function(data) {
+                if (data.success && data.nodes.length > 0) {
+                    window.drawGraph(data, '{{ country.name }}');
+                } else {
+                    document.getElementById('graphContainer').innerHTML = 
+                        '<div style="text-align:center; padding:50px;"><i class="fas fa-project-diagram" style="font-size:48px; color:#ccc;"></i><p>Không có dữ liệu đồ thị</p></div>';
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

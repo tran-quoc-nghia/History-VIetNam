@@ -1,0 +1,157 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Chi tiết: {{ treaty.name }}{% endblock %}
+
+{% block content %}
+<div class="view-layout">
+    <h2 style="margin-bottom: 20px; color: #1e3c72;">
+        <i class="fas fa-info-circle"></i> Thông tin chi tiết: {{ treaty.name }}
+    </h2>
+        <table class="info-table">
+            <tbody>
+            <tr><th>Mã hiệp định</th><td><code>{{ treaty.id }}</code></td></tr>
+            <tr><th>Tên hiệp định</th><td><strong>{{ treaty.name }}</strong></td></tr>
+            <tr><th>Năm</th><td>{{ treaty.year | default('—', true) }}</td></tr>
+            <tr>
+                <th>Ngày ký chính thức</th>
+                <td class="format-date">{{ treaty.signing_date | default('Chưa cập nhật', true) }}</td>
+            </tr>
+            <tr><th>Địa điểm ký kết</th><td>{{ treaty.location | default('—', true) }}</td></tr>
+            <!-- <tr>
+                <th>Hình ảnh tài liệu</th>
+                <td>
+                    {% if treaty.image_url %}
+                        <img src="/static/images/treaties/{{ treaty.image_url }}" 
+                            alt="{{ treaty.name }}" 
+                            style="max-width: 200px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);"
+                            onerror="this.src='/static/images/default/default-treaty.png'">
+                    {% else %}
+                        <span style="color: #999; font-style: italic;">Chưa có ảnh</span>
+                    {% endif %}
+                </td>
+            </tr> -->
+            <tr>
+                <th>Mô tả tóm tắt</th>
+                <td style="white-space: pre-wrap; line-height: 1.6;">{{ treaty.description | default('—', true) }}</td>
+            </tr>
+            <tr>
+                <th>Nội dung chính</th>
+                <td style="white-space: pre-wrap; line-height: 1.6;">{{ treaty.noi_dung_chinh | default('—', true) }}</td>
+            </tr>
+            <tr>
+                <th>Ý nghĩa lịch sử</th>
+                <td style="white-space: pre-wrap; line-height: 1.6;">{{ treaty.y_nghia | default('—', true) }}</td>
+            </tr>
+            <tr>
+                <th>Bài học kinh nghiệm</th>
+                <td style="white-space: pre-wrap; line-height: 1.6;">{{ treaty.bai_hoc_kinh_nghiem | default('—', true) }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="relationship-card">
+        <div class="relationship-header">
+            <h3><i class="fas fa-project-diagram" style="color: #3498db; margin-right: 8px;"></i> Các mối quan hệ liên quan</h3>
+            <a href="/admin/relationshipAdmin/add?source_id={{ treaty.id }}" class="btn-add" style="font-size: 14px; padding: 8px 15px; background: #3498db;">
+                <i class="fas fa-plus"></i> Thêm liên kết mới
+            </a>
+        </div>
+
+        <table class="info-table table-hover" style="margin-top: 10px;">
+            <thead>
+                <tr>
+                    <th style="width: 45%;">Thực thể liên quan</th>
+                    <th style="width: 35%;">Loại quan hệ</th>
+                    <th style="width: 20%; text-align: center;">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if relationships %}
+                    {% for rel in relationships %}
+                    <tr>
+                        <td>
+                            {% if rel.source_id == treaty.id %}
+                                <div class="rel-entity">
+                                    <span class="rel-icon-out" title="Hiệp định -> Thực thể khác"><i class="fas fa-arrow-right"></i></span>
+                                    <div class="entity-info">
+                                        <strong>{{ rel.target_name }}</strong>
+                                        <span class="node-tag">
+                                            {{ label_mapping.get(rel.target_type, rel.target_type) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="rel-entity">
+                                    <span class="rel-icon-in" title="Thực thể khác -> Hiệp định"><i class="fas fa-arrow-left"></i></span>
+                                    <div class="entity-info">
+                                        <strong>{{ rel.source_name }}</strong>
+                                        <span class="node-tag">
+                                            {{ label_mapping.get(rel.source_type, rel.source_type) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="rel-badge">
+                                {{ rel_mapping.get(rel.rel_type, rel.rel_type) }}
+                            </span>
+                        </td>
+                        <td style="text-align: center;">
+                            <button class="btn-action btn-delete" onclick="deleteRel('{{ rel.source_id }}', '{{ rel.target_id }}', '{{ rel.rel_type }}')" title="Xóa liên kết">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="3" style="text-align: center; padding: 30px; color: #95a5a6;">
+                            <i class="fas fa-unlink" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                            Chưa có mối quan hệ nào được ghi nhận cho sự kiện này.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="btn-group">
+        <a href="/admin/treatyAdmin" class="btn btn-back"><i class="fas fa-arrow-left"></i> Quay lại danh sách</a>
+        <a href="/admin/treatyAdmin/edit/{{ treaty.id }}" class="btn btn-edit"><i class="fas fa-edit"></i> Chỉnh sửa thông tin</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.format-date').forEach(el => {
+            const rawDate = el.innerText.trim();
+            if (rawDate && rawDate !== 'Chưa cập nhật' && rawDate !== '—') {
+                el.innerText = window.formatVNTime(rawDate);
+            }
+        });
+    });
+
+    // Hàm xóa mối quan hệ
+    function deleteRel(sourceId, targetId, relType) {
+        if(confirm(`Bạn có chắc muốn xóa mối quan hệ [${relType}] này?`)) {
+            fetch('/admin/api/relationships', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({source_id: sourceId, target_id: targetId, rel_type: relType})
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Lỗi: ' + data.error);
+                }
+            })
+            .catch(err => alert('Lỗi kết nối API: ' + err));
+        }
+    }
+</script>
+{% endblock %}

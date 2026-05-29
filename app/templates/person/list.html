@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block title %}Danh sách Nhân vật - Lịch sử Việt Nam{% endblock %}
+
+{% block extra_css %}
+<style>
+    .period-section {
+        margin-bottom: 40px;
+    }
+    .period-title {
+        color: #2c3e50;
+        border-bottom: 3px solid #e74c3c;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .period-years {
+        background: #e74c3c;
+        color: white;
+        padding: 3px 10px;
+        border-radius: 15px;
+        font-size: 14px;
+    }
+
+    .person-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 25px;
+    }
+
+    .person-card {
+        cursor: pointer;
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        border: 1px solid #edf2f7;
+        transition: all 0.3s ease;
+        display: flex;
+        gap: 18px;
+        align-items: center;
+    }
+
+    .person-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);
+        border-color: #e74c3c;
+    }
+
+    .person-card .person-avatar {
+        width: 75px;
+        height: 75px;
+        border-radius: 50%;        
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 3px solid #e74c3c;
+        box-shadow: 0 4px 10px rgba(231, 76, 60, 0.2);
+        background: #f8f9fa;
+    }
+
+    .person-card .person-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .person-card .card-info {
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .person-card .card-info h3 {
+        margin: 0 0 8px 0;
+        color: #1e3c72;
+        font-size: 17px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .person-card .meta-line {
+        font-size: 13px;
+        color: #555;
+        margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .person-card .meta-line i {
+        width: 16px;
+        text-align: center;
+        color: #e74c3c;
+    }
+
+    /* ===== CSS CHO PHÂN TRANG BÊN TRONG THỜI KỲ ===== */
+    .period-pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 20px;
+        gap: 8px;
+    }
+    .period-pagination button {
+        background: white;
+        border: 1px solid #ddd;
+        color: #555;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .period-pagination button:hover:not(:disabled) {
+        background: #f1f5f9;
+        border-color: #3498db;
+        color: #3498db;
+    }
+    .period-pagination button.active {
+        background: #3498db;
+        color: white;
+        border-color: #3498db;
+    }
+    .period-pagination button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #f9f9f9;
+    }
+
+    @media (max-width: 600px) {
+        .person-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1><i class="fas fa-users" style="color: #e74c3c;"></i> DANH SÁCH NHÂN VẬT THEO THỜI KỲ</h1>
+        <p>Khám phá các nhân vật lịch sử vĩ đại qua các thời đại của dân tộc Việt Nam</p>
+    </div>
+
+    <div class="filter-bar" style="margin-bottom: 30px;">
+        <div class="search-box small" style="flex: 1; max-width: 600px; margin: 0 auto;">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Tìm kiếm tên, vai trò...">
+        </div>
+    </div>
+
+    <div id="personContainer">
+        {% if periods %}
+            {% for period in periods %}
+                {% if period.persons and period.persons|length > 0 %}
+                <div class="period-section" data-period-id="{{ loop.index }}">
+                    <h2 class="period-title">
+                        <i class="fas fa-hourglass-half" style="color: #34495e;"></i>
+                        {{ period.period_name }}
+                        
+                        {% set end_y = period.period_end_year | string %}
+                        <span class="period-years">
+                            {{ period.period_start_year }} - 
+                            {% if end_y == '9999' or end_y == '2026' %}
+                                Nay
+                            {% else %}
+                                {{ period.period_end_year }}
+                            {% endif %}
+                        </span>
+                    </h2>
+                    
+                    <div class="person-grid">
+                        {% for p in period.persons %}
+                        <div class="person-card" 
+                             data-name="{{ p.name | lower }}" 
+                             data-role="{{ p.vai_tro | default('', true) | lower }}"
+                             onclick="window.location.href='/person/detail/{{ p.name | urlencode }}'">
+                            
+                            <div class="person-avatar">
+                                <img src="{% if p.image_url %}/static/images/persons/{{ p.image_url }}{% else %}/static/images/default.jpg{% endif %}" 
+                                     alt="{{ p.name }}" 
+                                     onerror="this.onerror=null; this.src='/static/images/default.jpg';">
+                            </div>
+                            
+                            <div class="card-info">
+                                <h3>{{ p.name }}</h3>                               
+                                <div class="meta-line">
+                                    <i class="fas fa-clock"></i>
+                                    <span>Ngày sinh: <span class="format-date">{{ p.ngay_sinh or 'Chưa cập nhật' }}</span></span>
+                                </div>
+                                
+                                <div class="meta-line">
+                                    <i class="fas fa-clock"></i>
+                                    <span>Ngày mất: <span class="format-date">{{ p.ngay_mat or 'Chưa cập nhật' }}</span></span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="period-pagination"></div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="no-results">Hệ thống chưa có dữ liệu nhân vật nào được ghi nhận.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- 1. ĐỊNH DẠNG NGÀY THÁNG ---
+        document.querySelectorAll('.format-date').forEach(el => {
+            const rawDate = el.innerText.trim();
+            if (rawDate && rawDate !== 'Chưa rõ' && rawDate !== 'Chưa cập nhật' && !rawDate.includes('TCN')) {
+                if(typeof window.formatVNTime === 'function'){
+                    el.innerText = window.formatVNTime(rawDate);
+                }
+            }
+        });
+
+        // --- 2. CẤU HÌNH PHÂN TRANG ---
+        const itemsPerPage = 6; // Đặt số lượng nhân vật hiển thị tối đa mỗi trang (có thể chỉnh lại)
+        const periodSections = document.querySelectorAll('.period-section');
+        const searchInput = document.getElementById('searchInput');
+
+        // Hàm thiết lập phân trang cho 1 thời kỳ cụ thể
+        function setupPaginationForSection(section) {
+            const grid = section.querySelector('.person-grid');
+            const paginationContainer = section.querySelector('.period-pagination');
+            
+            // Chỉ lấy những thẻ không bị ẩn bởi tính năng tìm kiếm (không có class 'hidden-by-search')
+            const allCards = Array.from(grid.querySelectorAll('.person-card:not(.hidden-by-search)'));
+            
+            // Xóa phân trang cũ
+            paginationContainer.innerHTML = '';
+            
+            const totalItems = allCards.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+            // Nếu số lượng ít hơn mức tối đa, hiển thị tất cả và không tạo nút bấm
+            if (totalPages <= 1) {
+                allCards.forEach(card => card.style.display = 'flex');
+                return;
+            }
+
+            // Hàm hiển thị theo trang (pageNumber bắt đầu từ 1)
+            function showPage(pageNumber) {
+                // Ẩn toàn bộ thẻ (chỉ áp dụng với các thẻ đang lọt vào bộ lọc)
+                allCards.forEach(card => card.style.display = 'none');
+                
+                const startIndex = (pageNumber - 1) * itemsPerPage;
+                const endIndex = startIndex + itemsPerPage;
+                
+                // Hiển thị các thẻ thuộc trang hiện tại
+                for (let i = startIndex; i < endIndex && i < totalItems; i++) {
+                    allCards[i].style.display = 'flex';
+                }
+
+                // Cập nhật trạng thái 'active' của các nút bấm
+                Array.from(paginationContainer.children).forEach(btn => btn.classList.remove('active'));
+                const targetBtn = paginationContainer.querySelector(`button[data-page="${pageNumber}"]`);
+                if (targetBtn) targetBtn.classList.add('active');
+            }
+
+            // Tạo các nút bấm
+            for (let i = 1; i <= totalPages; i++) {
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.setAttribute('data-page', i);
+                
+                // Trang 1 mặc định được chọn
+                if (i === 1) btn.classList.add('active');
+                
+                btn.addEventListener('click', function() {
+                    showPage(i);
+                });
+                paginationContainer.appendChild(btn);
+            }
+
+            // Mặc định gọi hiển thị trang 1
+            showPage(1);
+        }
+
+        // Khởi tạo phân trang cho toàn bộ các thời kỳ lúc mới load trang
+        periodSections.forEach(section => {
+            setupPaginationForSection(section);
+        });
+
+        // --- 3. KẾT HỢP VỚI TÍNH NĂNG TÌM KIẾM ---
+        function filterPersons() {
+            const keyword = searchInput.value.toLowerCase().trim();
+            let hasAnyVisibleResult = false;
+
+            periodSections.forEach(section => {
+                let hasVisiblePersonInSection = false;
+                const cards = section.querySelectorAll('.person-card');
+
+                cards.forEach(card => {
+                    const name = card.getAttribute('data-name') || '';
+                    const role = card.getAttribute('data-role') || '';
+                    const match = name.includes(keyword) || role.includes(keyword);
+                    
+                    if (match) {
+                        card.classList.remove('hidden-by-search'); // Đánh dấu thẻ HỢP LỆ với kết quả tìm kiếm
+                        hasVisiblePersonInSection = true;
+                        hasAnyVisibleResult = true;
+                    } else {
+                        card.classList.add('hidden-by-search');    // Đánh dấu thẻ BỊ LOẠI khỏi kết quả tìm kiếm
+                        card.style.display = 'none'; // Phải ép ẩn luôn ngay tại đây
+                    }
+                });
+
+                // Nếu thời kỳ đó có nhân vật khớp với tìm kiếm -> Hiện thời kỳ đó lên và xếp lại phân trang
+                if (hasVisiblePersonInSection) {
+                    section.style.display = 'block';
+                    setupPaginationForSection(section); // GỌI LẠI HÀM PHÂN TRANG SAU KHI LỌC
+                } else {
+                    section.style.display = 'none'; // Ẩn luôn toàn bộ thời kỳ
+                }
+            });
+
+            // Xử lý thông báo "Không tìm thấy"
+            let noResultsEl = document.getElementById('noResultsMsg');
+            if (!hasAnyVisibleResult) {
+                if (!noResultsEl) {
+                    noResultsEl = document.createElement('div');
+                    noResultsEl.id = 'noResultsMsg';
+                    noResultsEl.className = 'no-results';
+                    noResultsEl.textContent = 'Không tìm thấy nhân vật nào phù hợp với bộ lọc.';
+                    noResultsEl.style.padding = "40px";
+                    noResultsEl.style.textAlign = "center";
+                    noResultsEl.style.color = "#7f8c8d";
+                    document.getElementById('personContainer').appendChild(noResultsEl);
+                }
+                noResultsEl.style.display = 'block';
+            } else if (noResultsEl) {
+                noResultsEl.style.display = 'none';
+            }
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('input', filterPersons);
+        }
+    });
+</script>
+{% endblock %}

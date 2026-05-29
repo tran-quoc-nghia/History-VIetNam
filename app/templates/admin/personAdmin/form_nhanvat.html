@@ -1,0 +1,240 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{{ 'Sửa Nhân Vật' if person else 'Thêm Nhân Vật' }}{% endblock %}
+
+{% block content %}
+<div class="form-layout">
+    <p style="color: #e74c3c; font-size: 13px; margin-bottom: 20px; font-style: italic;">
+        <i class="fas fa-info-circle"></i> Hệ thống sẽ tự động xếp Nhân vật vào "Thời kỳ" dựa trên Năm được ghi trong ô <strong>Ngày sinh</strong> (hoặc Ngày mất). Hỗ trợ chữ "TCN".
+    </p>
+
+    <div id="crudForm">
+        <input type="hidden" id="nodeId" value="{{ person.id if person else '' }}">
+                
+        <div class="form-grid">
+            <div>
+                <div class="form-group">
+                    <label>Tên nhân vật<span style="color:red;">*</span></label>
+                    <input type="text" id="nodename" value="{{ person.name if person else '' }}" placeholder="VD: Võ Nguyên Giáp" required>
+                </div>
+                <div class="form-group">
+                    <label>Tên đầy đủ</label>
+                    <input type="text" id="nodeTenDayDu" value="{{ person.ten_day_du if person else '' }}" placeholder="VD: Võ Nguyên Giáp (Để trống sẽ tự lấy tên ngắn)">
+                </div>
+                <div class="form-group">
+                    <label>Vai trò chính</label>
+                    <input type="text" id="nodeVaiTro" value="{{ person.vai_tro if person else '' }}" placeholder="VD: Đại tướng, Vua, Nhà cách mạng...">
+                </div>
+                <div class="form-group">
+                    <label>Chức vụ <span style="color:red;">*</span></label>
+                    <input type="text" id="nodeChucVu" value="{{ person.chuc_vu if person else '' }}" placeholder="VD: Tổng tư lệnh QĐNDVN" required>
+                </div>
+                <div class="form-group">
+                    <label>Nhiệm kỳ</label>
+                    <input type="text" id="nodeNhiemKy" value="{{ person.nhiem_ky if person else '' }}" placeholder="VD: 1946 - 1980">
+                </div>
+                <div class="form-group">
+                    <label>Quốc tịch / Triều đại <span style="color:red;">*</span></label>
+                    <input type="text" id="nodeQuocTich" value="{{ person.quoc_tich if person else '' }}" placeholder="VD: Việt Nam, Đại Việt, Âu Lạc..." required>
+                </div>
+            </div>
+
+            <div>
+                <div class="form-group">
+                    <label>Ảnh nhân vật</label>
+                    {% if person and person.image_url %}
+                        <div style="margin-bottom: 10px;">
+                            <img src="/static/images/persons/{{ person.image_url }}" width="100" style="border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                            <input type="hidden" id="currentImage" value="{{ person.image_url }}">
+                        </div>
+                    {% endif %}
+                    <input type="file" id="nodeImageFile" accept="image/*">
+                </div>
+                
+                <div class="form-group">
+                    <label>Ngày sinh <span style="color:red;">*</span> <small style="font-weight: normal; color: #888;">(Dùng để xếp thời kỳ)</small></label>
+                    <input type="text" id="nodeNgaySinh" value="{{ person.ngay_sinh if person else '' }}" placeholder="VD: 19/05/1890, 1228 hoặc Không rõ" required>
+                </div>
+                <div class="form-group">
+                    <label>Nơi sinh</label>
+                    <input type="text" id="nodeNoiSinh" value="{{ person.noi_sinh if person else '' }}" placeholder="VD: Nam Đàn, Nghệ An">
+                </div>
+                
+                <div class="form-group">
+                    <label>Ngày mất <span style="color:red;">*</span> <small style="font-weight: normal; color: #888;">(Hoặc năm TCN)</small></label>
+                    <input type="text" id="nodeNgayMat" value="{{ person.ngay_mat if person else '' }}" placeholder="VD: 02/09/1969 hoặc 179 TCN" required>                            
+                </div>
+                <div class="form-group">
+                    <label>Nơi mất</label>
+                    <input type="text" id="nodeNoiMat" value="{{ person.noi_mat if person else '' }}">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <label>Tiểu sử</label>
+            <textarea id="nodeTieuSu" rows="6" placeholder="Tiểu sử chi tiết, những đóng góp nổi bật của nhân vật...">{{ person.cuoc_doi if person else '' }}</textarea>
+        </div>
+
+        <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; text-align: right;">
+            <a href="/admin/personAdmin" class="btn-cancel" style="background: #95a5a6; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; margin-right: 10px;"><i class="fas fa-times"></i> Hủy bỏ</a>
+            <button class="btn-save" onclick="saveData()" style="background: #2ecc71; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;"><i class="fas fa-save"></i> Lưu dữ liệu</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function formatVietnameseName(str) {
+        if (!str) return '';
+        return str.trim().replace(/\s+/g, ' ').toLowerCase().replace(/(^|\s)\S/g, letter => letter.toUpperCase());
+    }
+
+    // Hàm chuyển đổi YYYY-MM-DD (kể cả có đuôi thời gian T) sang DD/MM/YYYY
+    function convertToVNFormat(dateStr) {
+        if (!dateStr) return '';
+        dateStr = dateStr.trim();
+        
+        // 1. Cắt bỏ phần đuôi thời gian nếu có (chữ T hoặc khoảng trắng)
+        if (dateStr.includes('T')) {
+            dateStr = dateStr.split('T')[0];
+        } else if (dateStr.includes(' ')) {
+            dateStr = dateStr.split(' ')[0];
+        }
+
+        // 2. Lật ngược YYYY-MM-DD sang DD/MM/YYYY
+        if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+            const parts = dateStr.split('-');
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        
+        return dateStr; // Trả về nguyên gốc nếu nó đã đúng chuẩn
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputName = document.getElementById('nodename');
+        const inputFullName = document.getElementById('nodeTenDayDu');
+
+        if (inputName) inputName.addEventListener('blur', function() { this.value = formatVietnameseName(this.value); });
+        if (inputFullName) inputFullName.addEventListener('blur', function() { this.value = formatVietnameseName(this.value); });
+
+        // Tự động lật ngược định dạng ngày tháng khi vừa load trang
+        ['nodeNgaySinh', 'nodeNgayMat'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.value) {
+                el.value = convertToVNFormat(el.value);
+            }
+        });
+    });
+
+    function saveData() {
+        const nameField = formatVietnameseName(document.getElementById('nodename').value);
+        const chucVuField = document.getElementById('nodeChucVu').value.trim();
+        const ngaySinhField = document.getElementById('nodeNgaySinh').value.trim();
+        const ngayMatField = document.getElementById('nodeNgayMat').value.trim();
+        const quocTichField = document.getElementById('nodeQuocTich').value.trim();
+
+        const requiredFields = ['nodename', 'nodeChucVu', 'nodeNgaySinh', 'nodeNgayMat', 'nodeQuocTich'];
+        requiredFields.forEach(id => {
+            const el = document.getElementById(id);
+            el.style.borderColor = '#ccc'; 
+            const oldError = el.parentNode.querySelector('.error-msg');
+            if (oldError) oldError.remove();
+        });
+
+        let isValid = true;
+        let firstFocus = null;
+
+        function showError(id, message) {
+            const el = document.getElementById(id);
+            el.style.borderColor = '#e74c3c'; 
+            const errorMsg = document.createElement('div');
+            errorMsg.className = 'error-msg';
+            errorMsg.style.color = '#e74c3c';
+            errorMsg.style.fontSize = '12.5px';
+            errorMsg.style.marginTop = '6px';
+            errorMsg.style.fontStyle = 'italic';
+            errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + message;
+            
+            el.parentNode.appendChild(errorMsg);
+            if (!firstFocus) firstFocus = el;
+            isValid = false;
+        }
+
+        if(!nameField) showError('nodename', 'Vui lòng nhập Tên nhân vật!');
+        if(!chucVuField) showError('nodeChucVu', 'Vui lòng nhập Chức vụ!');
+        if(!ngaySinhField) showError('nodeNgaySinh', 'Vui lòng nhập Ngày sinh!');
+        if(!ngayMatField) showError('nodeNgayMat', 'Vui lòng nhập Ngày mất!');
+        if(!quocTichField) showError('nodeQuocTich', 'Vui lòng nhập Quốc tịch / Triều đại!');
+
+        if(!isValid) {
+            firstFocus.focus();
+            return;
+        }
+
+        let tenDayDuField = formatVietnameseName(document.getElementById('nodeTenDayDu').value);
+        let vaiTroField = formatVietnameseName(document.getElementById('nodeVaiTro').value);
+        let noiSinhField = formatVietnameseName(document.getElementById('nodeNoiSinh').value);
+        let noiMatField = formatVietnameseName(document.getElementById('nodeNoiMat').value);
+        let nhiemKyField = document.getElementById('nodeNhiemKy').value.trim();
+        let tieuSuField = document.getElementById('nodeTieuSu').value.trim();
+
+        if(!tenDayDuField) tenDayDuField = nameField;
+        if(!vaiTroField) vaiTroField = "Không rõ";
+        if(!noiSinhField) noiSinhField = "Không rõ";
+        if(!noiMatField) noiMatField = "Không rõ";
+        if(!nhiemKyField) nhiemKyField = "Không rõ";
+        if(!tieuSuField) tieuSuField = "Không rõ";
+
+        const saveBtn = document.querySelector('.btn-save');
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+        saveBtn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('id', document.getElementById('nodeId').value);
+        formData.append('name', nameField);
+        formData.append('ten_day_du', tenDayDuField);
+        formData.append('vai_tro', vaiTroField);
+        formData.append('ngay_sinh', ngaySinhField);
+        formData.append('noi_sinh', noiSinhField);
+        formData.append('ngay_mat', ngayMatField);
+        formData.append('noi_mat', noiMatField);
+        formData.append('quoc_tich', quocTichField);
+        formData.append('chuc_vu', chucVuField);
+        formData.append('nhiem_ky', nhiemKyField);
+        formData.append('cuoc_doi', tieuSuField);
+
+        const fileInput = document.getElementById('nodeImageFile');
+        if (fileInput.files.length > 0) {
+            formData.append('image', fileInput.files[0]);
+        } else {
+            const currentImage = document.getElementById('currentImage');
+            if (currentImage) formData.append('image_url', currentImage.value);
+        }
+
+        const id = document.getElementById('nodeId').value;
+        const method = id ? 'PUT' : 'POST';
+
+        fetch('/admin/api/persons', {
+            method: method,
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                window.location.href = '/admin/personAdmin';
+            } else {
+                alert("Lỗi: " + data.error);
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
+                saveBtn.disabled = false;
+            }   
+        })
+        .catch(err => {
+            alert("Lỗi kết nối API: " + err);
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
+            saveBtn.disabled = false;
+        });
+    }
+</script>
+{% endblock %}

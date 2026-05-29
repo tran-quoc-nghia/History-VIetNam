@@ -1,0 +1,236 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Quản lý Hiệp định{% endblock %}
+
+{% block extra_css %}
+    <style>
+        .admin-layout { max-width: 1000px; margin: 40px auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
+        .admin-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 20px; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th, .data-table td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
+        .data-table th { background: #f8f9fa; font-weight: 600; color: #1e3c72; }
+        .btn-action { padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; color: white; margin-right: 5px; transition: 0.2s; text-decoration: none; display: inline-block; font-size: 14px;}
+        .btn-action:hover { opacity: 0.8; }
+        .btn-view { background: #3498db; }
+        .btn-edit { background: #f39c12; }
+        .btn-delete { background: #e74c3c; }
+        .btn-add { background: #2ecc71; padding: 10px 20px; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-decoration: none; display: inline-block;}
+        
+        /* CSS Tìm kiếm và Phân trang (Đồng bộ) */
+        .table-toolbar {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+        }
+        .search-wrapper {
+            position: relative; width: 300px;
+        }
+        .search-wrapper input {
+            width: 100%; padding: 10px 15px 10px 35px; border: 1px solid #ccc; border-radius: 20px; outline: none; font-size: 14px;
+        }
+        .search-wrapper i {
+            position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;
+        }
+        .pagination {
+            display: flex; justify-content: center; gap: 5px; margin-top: 20px;
+        }
+        .page-btn {
+            border: 1px solid #ddd; background: #fff; padding: 6px 12px; border-radius: 5px; cursor: pointer; color: #333; transition: 0.2s; font-weight: 500;
+        }
+        .page-btn:hover:not(.disabled) { background: #f0f0f0; }
+        .page-btn.active { background: #2a5298; color: #fff; border-color: #2a5298; }
+        .page-btn.disabled { opacity: 0.5; cursor: not-allowed; }
+        .count-badge {
+            background: #e8f0fe;
+            color: #1e3c72;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 1px solid #cce5ff;
+            margin-left: 15px;
+            display: inline-block;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+    <div class="admin-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 10px; display: flex; align-items: center;">
+        <h2 style="margin: 0;"><i class="fas fa-handshake"></i> Quản lý Hiệp Định</h2>
+        <!-- Thẻ hiển thị số lượng -->
+        <span id="treatyCount" class="count-badge">Tổng: {{ treaties|length if treaties else 0 }} hiệp định</span>
+    </div>
+
+    <div class="table-toolbar">
+        <div class="search-wrapper">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Tìm kiếm hiệp định...">
+        </div>
+        <a href="/admin/treatyAdmin/add" class="btn-add"><i class="fas fa-plus"></i> Thêm mới</a>
+    </div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Tên hiệp định</th>
+                <th>Ngày ký</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody id="dataTableBody">
+            {% if treaties %}
+                {% for t in treaties %}
+                <tr class="data-row">
+                    <td><span style="background:#eee; padding:2px 6px; border-radius:4px; font-size:12px;">{{ t.id }}</span></td>
+                    <td><strong>{{ t.name or 'Chưa có tên' }}</strong></td>
+                    <td class="format-date">{{ t.signing_date | default('Chưa cập nhật', true) }}</td>
+                    <td>
+                        <a href="/admin/treatyAdmin/view/{{ t.id }}" class="btn-action btn-view" title="Xem"><i class="fas fa-eye"></i></a>
+                        <a href="/admin/treatyAdmin/edit/{{ t.id }}" class="btn-action btn-edit" title="Sửa"><i class="fas fa-edit"></i></a>
+                        <button class="btn-action btn-delete" onclick="deleteData('{{ t.id }}')" title="Xóa"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr class="no-data"><td colspan="4" style="text-align:center;">Không có dữ liệu</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+    
+    <div id="paginationContainer" class="pagination"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function deleteData(id) {
+        if (confirm('Bạn có chắc chắn muốn xóa hiệp định này và toàn bộ mối quan hệ của nó không?')) {
+            fetch('/admin/api/treaties', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    window.location.reload();
+                } else {
+                    alert('Xóa thất bại: ' + (data.error || 'Lỗi không xác định'));
+                }
+            })
+            .catch(err => {
+                alert('Lỗi khi gọi api xóa: ' + err);
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Format ngày tháng (nếu có hàm window.formatVNTime)
+        document.querySelectorAll('.format-date').forEach(el => {
+            const rawDate = el.innerText.trim();
+            if (rawDate && rawDate !== 'Chưa cập nhật') {
+                if (typeof window.formatVNTime === 'function') {
+                    el.innerText = window.formatVNTime(rawDate);
+                }
+            }
+        });
+
+        // TÌM KIẾM & PHÂN TRANG JAVASCRIPT
+        const tableBody = document.getElementById('dataTableBody');
+        if (!tableBody) return;
+
+        const rows = Array.from(tableBody.querySelectorAll('tr.data-row'));
+        const searchInput = document.getElementById('searchInput');
+        const paginationContainer = document.getElementById('paginationContainer');
+        const countBadge = document.getElementById('treatyCount');
+        
+        let currentPage = 1;
+        const rowsPerPage = 10; // Đặt số lượng hiển thị trên 1 trang
+        let filteredRows = [...rows];
+
+        function renderTable() {
+            // Ẩn tất cả các dòng
+            rows.forEach(row => row.style.display = 'none');
+            
+            if (filteredRows.length === 0) {
+                paginationContainer.innerHTML = '';
+                return;
+            }
+
+            // Tính toán index của trang hiện tại
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = startIndex + rowsPerPage;
+            
+            // Hiển thị các dòng trong trang hiện tại
+            const pageRows = filteredRows.slice(startIndex, endIndex);
+            pageRows.forEach(row => row.style.display = '');
+
+            renderPagination();
+        }
+
+        function renderPagination() {
+            if (!paginationContainer) return;
+            paginationContainer.innerHTML = '';
+            
+            const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+            if (totalPages <= 1) return;
+
+            // Nút Prev
+            const prevBtn = document.createElement('button');
+            prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            prevBtn.className = 'page-btn ' + (currentPage === 1 ? 'disabled' : '');
+            prevBtn.onclick = () => { if(currentPage > 1) { currentPage--; renderTable(); } };
+            paginationContainer.appendChild(prevBtn);
+
+            // Các số trang
+            for (let i = 1; i <= totalPages; i++) {
+                // Rút gọn trang nếu quá nhiều
+                if(totalPages > 7 && i !== 1 && i !== totalPages && Math.abs(i - currentPage) > 1) {
+                    if (Math.abs(i - currentPage) === 2) {
+                        const dots = document.createElement('span');
+                        dots.innerHTML = '...';
+                        dots.style.padding = '5px 10px';
+                        paginationContainer.appendChild(dots);
+                    }
+                    continue;
+                }
+
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.className = 'page-btn ' + (currentPage === i ? 'active' : '');
+                btn.onclick = () => { currentPage = i; renderTable(); };
+                paginationContainer.appendChild(btn);
+            }
+
+            // Nút Next
+            const nextBtn = document.createElement('button');
+            nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            nextBtn.className = 'page-btn ' + (currentPage === totalPages ? 'disabled' : '');
+            nextBtn.onclick = () => { if(currentPage < totalPages) { currentPage++; renderTable(); } };
+            paginationContainer.appendChild(nextBtn);
+        }
+
+        // Lắng nghe sự kiện tìm kiếm
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                const term = e.target.value.toLowerCase();
+                filteredRows = rows.filter(row => row.textContent.toLowerCase().includes(term));
+                
+                // Cập nhật lại số lượng hiển thị trên Badge
+                if (term === '') {
+                    countBadge.innerHTML = `Tổng: ${rows.length} hiệp định`;
+                } else {
+                    countBadge.innerHTML = `Tìm thấy: ${filteredRows.length} / ${rows.length}`;
+                }
+
+                currentPage = 1; // Reset về trang đầu tiên
+                renderTable();
+            });
+        }
+
+        // Khởi chạy khi load trang
+        if (rows.length > 0) renderTable();
+    });
+</script>
+{% endblock %}

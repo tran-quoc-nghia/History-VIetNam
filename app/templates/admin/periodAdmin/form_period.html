@@ -1,0 +1,184 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{{ 'Sửa Thời Kỳ' if period else 'Thêm Thời Kỳ' }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Tăng kích thước chữ và ô nhập cho form thời kỳ */
+    #crudForm label {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #1e3c72;
+    }
+    #crudForm input[type="text"],
+    #crudForm textarea {
+        font-size: 16px;
+        padding: 12px 18px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    #crudForm textarea {
+        min-height: 180px;
+        line-height: 1.6;
+    }
+    #crudForm .btn-save,
+    #crudForm .btn-cancel {
+        font-size: 16px;
+        padding: 12px 28px;
+        border-radius: 8px;
+    }
+    #crudForm .form-group {
+        margin-bottom: 22px;
+    }
+    /* Style riêng cho thông báo tự động liên kết */
+    .auto-link-info {
+        margin-bottom: 20px;
+        font-size: 14px;
+        color: #27ae60;
+        background: #eafaf1;
+        padding: 12px 15px;
+        border-radius: 8px;
+        border: 1px solid #a3e4d7;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .auto-link-info i {
+        font-size: 16px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-layout">
+    <div id="crudForm">
+        <input type="hidden" id="nodeId" value="{{ period.id if period else '' }}">
+                    
+        <div class="form-group">
+            <label>Tên thời kỳ / giai đoạn <span style="color:red;">*</span></label>
+            <input type="text" id="nodeName" value="{{ period.name if period else '' }}" placeholder="VD: Thời đại Hùng Vương, Kháng chiến chống Pháp..." required>
+        </div>
+
+        <div class="form-grid" style="margin-bottom: 5px;">
+            <div class="form-group">
+                <label>Năm bắt đầu <span style="color:red;">*</span></label>
+                <input type="text" id="nodeStartYear" value="{{ period.start_year if period else '' }}" placeholder="VD: 1945 hoặc 2879 TCN" required>
+            </div>
+            <div class="form-group">
+                <label>Năm kết thúc <span style="color:red;">*</span></label>
+                <input type="text" id="nodeEndYear" value="{{ period.end_year if period else '' }}" placeholder="VD: 1954, 179 TCN hoặc Nay" required>
+            </div>
+        </div>
+        
+        <div class="auto-link-info">
+            <i class="fas fa-magic"></i> 
+            <span><strong>Tính năng tự động:</strong> Khi bạn lưu, hệ thống sẽ tự động quét và liên kết tất cả các Nhân vật, Sự kiện & Hiệp định có thời gian diễn ra nằm trong khoảng năm này.</span>
+        </div>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <label>Mô tả tổng quan</label>
+            <textarea id="nodeDescription" rows="4" placeholder="Mô tả bối cảnh lịch sử của giai đoạn này...">{{ period.description if period else '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Ý nghĩa lịch sử</label>
+            <textarea id="nodeSignificance" rows="4" placeholder="Tầm quan trọng, bài học để lại của giai đoạn này...">{{ period.y_nghia if period else '' }}</textarea>
+        </div>
+
+        <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; text-align: right;">
+            <a href="/admin/periodAdmin" class="btn-cancel"><i class="fas fa-times"></i> Hủy bỏ</a>
+            <button class="btn-save" onclick="saveData()"><i class="fas fa-save"></i> Lưu dữ liệu</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function saveData() {
+        // Xóa lỗi cũ
+        document.querySelectorAll('.error-msg').forEach(el => el.remove());
+        const fields = ['nodeName', 'nodeStartYear', 'nodeEndYear', 'nodeDescription', 'nodeSignificance'];
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.borderColor = '#ccc';
+        });
+
+        let nameField = document.getElementById('nodeName').value.trim();
+        let startYear = document.getElementById('nodeStartYear').value.trim();
+        let endYear = document.getElementById('nodeEndYear').value.trim();
+        let descField = document.getElementById('nodeDescription').value.trim();
+        let signField = document.getElementById('nodeSignificance').value.trim();
+
+        let isValid = true;
+        let firstFocus = null;
+
+        function showError(id, message) {
+            const el = document.getElementById(id);
+            el.style.borderColor = '#e74c3c';
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-msg';
+            errorDiv.style.color = '#e74c3c';
+            errorDiv.style.fontSize = '12.5px';
+            errorDiv.style.marginTop = '6px';
+            errorDiv.style.fontStyle = 'italic';
+            errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + message;
+            el.parentNode.appendChild(errorDiv);
+            if (!firstFocus) firstFocus = el;
+            isValid = false;
+        }
+
+        if (!nameField) showError('nodeName', 'Vui lòng nhập Tên thời kỳ!');
+        if (!startYear) showError('nodeStartYear', 'Vui lòng nhập Năm bắt đầu!');
+        if (!endYear) showError('nodeEndYear', 'Vui lòng nhập Năm kết thúc!');
+
+        if (!isValid) {
+            firstFocus.focus();
+            return;
+        }
+
+        // Gán "Không rõ" cho các trường không bắt buộc nếu trống
+        if (!descField) descField = 'Không rõ';
+        if (!signField) signField = 'Không rõ';
+
+        const saveBtn = document.querySelector('.btn-save');
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý tự động liên kết...';
+        saveBtn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('id', document.getElementById('nodeId').value);
+        formData.append('name', nameField);
+        formData.append('start_year', startYear);
+        formData.append('end_year', endYear);
+        formData.append('description', descField);
+        formData.append('y_nghia', signField);
+
+        const id = document.getElementById('nodeId').value;
+        const method = id ? 'PUT' : 'POST';
+
+        fetch('/admin/api/periods', {
+            method: method,
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message || 'Lưu thành công!');
+                window.location.href = '/admin/periodAdmin';
+            } else {
+                alert("Lỗi: " + data.error);
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
+                saveBtn.disabled = false;
+            }
+        })
+        .catch(err => {
+            alert("Lỗi kết nối API: " + err);
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
+            saveBtn.disabled = false;
+        });
+    }
+</script>
+{% endblock %}

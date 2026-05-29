@@ -1,0 +1,445 @@
+{% extends "base.html" %}
+
+{% block title %}Chat AI - Lịch sử Việt Nam{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Tăng chiều cao và chiều rộng khung chat */
+    .chat-container {
+        height: calc(100vh - 50px); /* tăng chiều cao so với mặc định */
+        max-width: 1000px;           /* rộng hơn mặc định 850px */
+    }
+    /* Giảm padding container để tận dụng chiều ngang */
+    .container {
+        padding: 0 10px;
+    }
+    
+    /* THÊM MỚI: Định dạng cho bảng Popup khi hover vào Node */
+    div.vis-tooltip {
+        position: absolute;
+        visibility: hidden;
+        padding: 0px !important; /* Xóa padding mặc định để bo sát bảng HTML */
+        white-space: nowrap;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        color: #333;
+        background-color: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        pointer-events: none;
+        z-index: 9999;
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="chat-container">
+        <div class="chat-header-actions" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #eee; background: #fdfdfd; border-radius: 8px 8px 0 0;">
+            <div style="display: flex; gap: 10px;">
+                <span style="font-size: 14px; color: #666;">
+                    <i class="far fa-clock"></i> 
+                    <span id="messageCount">0</span> tin nhắn
+                </span>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="exportChat()" style="background: none; border: none; color: #3498db; cursor: pointer; font-size: 14px; transition: 0.2s;" title="Xuất đoạn chat">
+                    <i class="fas fa-download"></i> Xuất
+                </button>
+                <button onclick="clearChatWithConfirm()" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s;" title="Xóa đoạn chat">
+                    <i class="fas fa-trash-alt"></i> Xóa đoạn chat
+                </button>
+            </div>
+        </div>
+        
+        <div id="chatBox" class="chat-box">
+            </div>
+
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea id="chatInput" placeholder="Nhập câu hỏi về nhân vật, sự kiện, thời kỳ..." rows="1"></textarea>
+                <button id="sendBtn"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<script>
+    // ==================== HÀM VẼ ĐỒ THỊ ĐỘC LẬP CHO CHAT ====================
+    function drawChatGraph(graphData, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        // Lưu DataSet vào biến để dùng cho sự kiện Click
+        const nodesDataset = new vis.DataSet(graphData.nodes);
+        const edgesDataset = new vis.DataSet(graphData.edges);
+
+        const data = {
+            nodes: nodesDataset,
+            edges: edgesDataset
+        };
+
+        const options = {
+            nodes: {
+                shape: 'dot',
+                size: 20,
+                font: { size: 12 }
+            },
+            interaction: {
+                hover: true, // Bật tính năng hover để hiện tooltip
+                tooltipDelay: 200,
+                hoverConnectedEdges: true
+            },
+            configure: { enabled: false },
+            physics: {
+                enabled: true,
+                stabilization: {
+                    enabled: true,
+                    iterations: 100,
+                    updateInterval: 25,
+                    fit: true
+                },
+                barnesHut: {
+                    gravitationalConstant: -3000,
+                    centralGravity: 0.3,
+                    springLength: 150,
+                    springConstant: 0.04,
+                    damping: 0.09,
+                    avoidOverlap: 0.5
+                },
+                solver: 'barnesHut'
+            },
+            height: '100%',
+            width: '100%'
+        };
+
+        // Khởi tạo đồ thị
+        const network = new vis.Network(container, data, options);
+
+        // THÊM MỚI: Bắt sự kiện Click để chuyển trang
+        network.on("click", function (params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                const clickedNode = nodesDataset.get(nodeId);
+                
+                // Kiểm tra xem node có chứa url được truyền từ file user_routes.py không
+                if (clickedNode && clickedNode.url) {
+                    // Dùng window.open('_blank') để mở tab mới, giúp người dùng không bị mất nội dung đoạn chat hiện tại
+                    window.open(clickedNode.url, '_blank'); 
+                }
+            }
+        });
+
+        // THÊM MỚI: Đổi con trỏ chuột thành hình bàn tay (pointer) khi di chuyển vào node có link
+        network.on("hoverNode", function (params) {
+            const nodeId = params.node;
+            const hoveredNode = nodesDataset.get(nodeId);
+            if (hoveredNode && hoveredNode.url) {
+                network.canvas.body.container.style.cursor = 'pointer';
+            }
+        });
+
+        // Trả lại con trỏ chuột bình thường khi di chuyển ra ngoài node
+        network.on("blurNode", function (params) {
+            network.canvas.body.container.style.cursor = 'default';
+        });
+    }
+
+    // ==================== QUẢN LÝ LỊCH SỬ CHAT ====================
+    const STORAGE_KEY = 'vietnam_history_chat';
+    const CHAT_VERSION = '1.0';
+    
+    let chatHistory = {
+        version: CHAT_VERSION,
+        messages: [],
+        lastUpdated: null
+    };
+    
+    function initChat() {
+        const saved = sessionStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (parsed.version === CHAT_VERSION && parsed.messages) {
+                    chatHistory.messages = parsed.messages;
+                }
+            } catch (e) {
+                console.error('Lỗi đọc lịch sử chat:', e);
+            }
+        }
+        
+        if (chatHistory.messages.length === 0) {
+            addWelcomeMessage();
+        } else {
+            renderChatFromHistory();
+        }
+    }
+    
+    function addWelcomeMessage() {
+        const welcomeMsg = {
+            id: 'welcome-' + Date.now(),
+            sender: 'bot',
+            text: 'Chào bạn! Tôi là Trợ lý AI về Lịch sử Việt Nam. Tôi có thể giúp gì cho bạn hôm nay?',
+            timestamp: new Date().toISOString(),
+            hasGraph: false,
+            suggestions: [
+                'Những ai đã tham gia tổ chức Quân đội Nhân dân Việt Nam?',
+                'Võ Nguyên Giáp đã tham gia những tổ chức nào?',
+                'Ai đã chỉ huy trận Khe Sanh?',
+                'Chiến dịch Hồ Chí Minh diễn ra khi nào?',
+                'Chiến dịch  Điện Biên Phủ có những ai tham gia?'
+            ]
+        };
+        addMessageDirectly(welcomeMsg);
+    }
+    
+    function saveChatHistory() {
+        chatHistory.lastUpdated = new Date().toISOString();
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
+        updateMessageCount();
+    }
+    
+    function renderChatFromHistory() {
+        const chatBox = document.getElementById('chatBox');
+        chatBox.innerHTML = '';
+        
+        chatHistory.messages.forEach(msg => {
+            renderMessage(msg);
+        });
+        
+        chatBox.scrollTop = chatBox.scrollHeight;
+        updateMessageCount();
+    }
+    
+    function renderMessage(msg) {
+        const chatBox = document.getElementById('chatBox');
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${msg.sender}`;
+        msgDiv.id = msg.id;
+        
+        let html = `<div class="message-content">${marked.parse(msg.text)}</div>`;
+        
+        if (msg.timestamp) {
+            const time = new Date(msg.timestamp);
+            const timeStr = time.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            html += `<div style="font-size: 10px; color: #999; margin-top: 5px; text-align: right;">${timeStr}</div>`;
+        }
+        
+        if (msg.suggestions && msg.suggestions.length > 0) {
+            html += `<div class="suggestion-chips" style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">`;
+            msg.suggestions.forEach(s => {
+                html += `<span class="chip" onclick="quickAsk('${s.replace(/'/g, "\\'")}')">💬 ${s}</span>`;
+            });
+            html += `</div>`;
+        }
+        
+        if (msg.hasGraph && msg.graphData) {
+            const graphId = 'graph-' + msg.id;
+            html += `<div id="${graphId}" class="chat-graph" style="height: 300px; width: 100%; border: 1px solid #ddd; border-radius: 8px; margin-top: 10px; background: #fff;"></div>`;
+            msgDiv.innerHTML = html;
+            chatBox.appendChild(msgDiv);
+            
+            setTimeout(() => {
+                drawChatGraph(msg.graphData, graphId);
+            }, 150);
+        } else {
+            msgDiv.innerHTML = html;
+            chatBox.appendChild(msgDiv);
+        }
+    }
+    
+    function addMessageDirectly(message) {
+        chatHistory.messages.push(message);
+        saveChatHistory();
+        renderMessage(message);
+        const chatBox = document.getElementById('chatBox');
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function addMessage(sender, text, graphData = null) {
+        const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+        const message = {
+            id: msgId,
+            sender: sender,
+            text: text,
+            timestamp: new Date().toISOString(),
+            hasGraph: graphData && graphData.nodes && graphData.nodes.length > 0,
+            graphData: graphData,
+            suggestions: null
+        };
+        addMessageDirectly(message);
+    }
+    
+    function updateMessageCount() {
+        const countEl = document.getElementById('messageCount');
+        if (countEl) {
+            const userMessages = chatHistory.messages.filter(m => m.sender === 'user').length;
+            const botMessages = chatHistory.messages.filter(m => m.sender === 'bot').length;
+            countEl.textContent = userMessages + botMessages;
+        }
+    }
+    
+    function clearChat() {
+        chatHistory.messages = [];
+        sessionStorage.removeItem(STORAGE_KEY);
+        document.getElementById('chatBox').innerHTML = '';
+        addWelcomeMessage();
+        showToast('Đã xóa đoạn chat', 'success');
+    }
+    
+    function clearChatWithConfirm() {
+        if (chatHistory.messages.length <= 1) {
+            clearChat();
+            return;
+        }
+        if (confirm('Bạn có chắc muốn xóa toàn bộ đoạn chat hiện tại?')) {
+            clearChat();
+        }
+    }
+    
+    function exportChat() {
+        if (chatHistory.messages.length === 0) {
+            showToast('Không có nội dung để xuất', 'error');
+            return;
+        }
+
+        // Tạo tiêu đề cho file văn bản
+        let txtContent = "=================================================\n";
+        txtContent += "    LỊCH SỬ HỘI THOẠI - HỆ THỐNG HỎI ĐÁP LỊCH SỬ\n";
+        txtContent += `    Thời gian xuất: ${new Date().toLocaleString('vi-VN')}\n`;
+        txtContent += "=================================================\n\n";
+
+        // Lặp qua các tin nhắn và định dạng lại
+        chatHistory.messages.forEach(m => {
+            const timeStr = new Date(m.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            
+            if (m.sender === 'user') {
+                txtContent += `[Học viên] (${timeStr}):\n`;
+                txtContent += `${m.text}\n\n`;
+            } else if (m.sender === 'bot') {
+                txtContent += `[Trợ lý AI] (${timeStr}):\n`;
+                // Loại bỏ các thẻ HTML cơ bản nếu có để file txt sạch sẽ hơn
+                let cleanText = m.text.replace(/<br\s*\/?>/gi, '\n');
+                cleanText = cleanText.replace(/<[^>]*>?/gm, ''); 
+                txtContent += `${cleanText}\n`;
+                txtContent += `-------------------------------------------------\n\n`;
+            }
+        });
+
+        // Tạo Blob định dạng text/plain để xuất file TXT
+        const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        // Đặt tên file có chứa ngày tháng
+        const dateStr = new Date().toISOString().split('T')[0];
+        a.download = `Tai-lieu-Lich-su-${dateStr}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        showToast('Đã tải tài liệu hội thoại thành tệp TXT', 'success');
+    }
+    
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast-message ${type}`;
+        
+        let icon = 'info-circle';
+        if (type === 'success') icon = 'check-circle';
+        if (type === 'error') icon = 'exclamation-circle';
+        
+        toast.innerHTML = `<i class="fas fa-${icon}"></i><span>${message}</span>`;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.animation = 'fadeOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+    
+    // ==================== CHAT FUNCTIONS ====================
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    
+    chatInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    async function sendMessage() {
+        const query = chatInput.value.trim();
+        if (!query) return;
+
+        addMessage('user', query);
+        chatInput.value = '';
+        chatInput.style.height = 'auto';
+
+        const loadingId = 'loading-' + Date.now();
+        const loadingMsg = {
+            id: loadingId,
+            sender: 'bot',
+            text: '<span class="typing-indicator">Đang phân tích dữ liệu...</span>',
+            timestamp: new Date().toISOString(),
+            hasGraph: false,
+            graphData: null,
+            suggestions: null
+        };
+        renderMessage(loadingMsg);
+        
+        const chatBox = document.getElementById('chatBox');
+        chatBox.scrollTop = chatBox.scrollHeight;
+        
+        try {
+            const response = await fetch(`/api/query/natural?q=${encodeURIComponent(query)}`);
+            const data = await response.json();
+
+            const loadingEl = document.getElementById(loadingId);
+            if (loadingEl) loadingEl.remove();
+            
+            if (data.success) {
+                addMessage('bot', data.answer, data.graph);
+            } else {
+                addMessage('bot', '❌ Hệ thống không thể xử lý câu hỏi này. Vui lòng thử lại.');
+            }
+            
+        } catch (e) {
+            console.error('Lỗi gửi tin nhắn:', e);
+            const loadingEl = document.getElementById(loadingId);
+            if (loadingEl) loadingEl.remove();
+            
+            addMessage('bot', '❌ Lỗi kết nối mạng hoặc máy chủ không phản hồi.');
+        }
+    }
+
+    function quickAsk(question) {
+        chatInput.value = question;
+        sendMessage();
+    }
+
+    sendBtn.onclick = sendMessage;
+    chatInput.onkeypress = (e) => { 
+        if(e.key === 'Enter' && !e.shiftKey) { 
+            e.preventDefault(); 
+            sendMessage(); 
+        } 
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initChat();
+    });
+    
+    window.clearChat = clearChat;
+    window.clearChatWithConfirm = clearChatWithConfirm;
+    window.exportChat = exportChat;
+    window.quickAsk = quickAsk;
+    window.sendMessage = sendMessage;
+</script>
+{% endblock %}

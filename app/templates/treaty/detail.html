@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}{{ treaty.name }} - Lịch sử Việt Nam{% endblock %}
+
+{% block content %}
+<div class="container" style="background: transparent; box-shadow: none; padding-top: 20px;">
+    <a href="javascript:history.back()" class="back-button" style="margin-bottom: 25px;">
+        <i class="fas fa-arrow-left"></i> Quay lại danh sách
+    </a>
+
+    <div class="detail-container">
+        <!-- Banner hiệp định với các ô thông tin ngang hàng -->
+        <div class="treaty-hero">
+            <div class="treaty-hero-content">
+                <div class="treaty-hero-icon">
+                    <i class="fas fa-file-signature"></i>
+                </div>
+                <h1>{{ treaty.name }}</h1>
+                <div class="treaty-details-row">
+                    {% if treaty.signing_date %}
+                    <div class="treaty-detail-item">
+                        <i class="fas fa-calendar-check"></i>
+                        <span class="label">Ngày ký</span>
+                        <span class="value format-date">{{ treaty.signing_date }}</span>
+                    </div>
+                    {% endif %}
+                    {% if treaty.location %}
+                    <div class="treaty-detail-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span class="label">Nơi ký</span>
+                        <span class="value">{{ treaty.location }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Giới thiệu -->
+        {% if treaty.description %}
+        <div class="description-box desc-treaty-intro">
+            <h3><i class="fas fa-info-circle"></i> Giới thiệu</h3>
+            <p>{{ treaty.description }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Nội dung chính -->
+        {% if treaty.noi_dung_chinh %}
+        <div class="description-box desc-treaty-content">
+            <h3><i class="fas fa-file-contract"></i> Nội dung chính</h3>
+            <p>{{ treaty.noi_dung_chinh }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Ý nghĩa lịch sử -->
+        {% if treaty.y_nghia %}
+        <div class="description-box desc-significance">
+            <h3><i class="fas fa-lightbulb"></i> Ý nghĩa lịch sử</h3>
+            <p>{{ treaty.y_nghia }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Bài học kinh nghiệm -->
+        {% if treaty.bai_hoc_kinh_nghiem %}
+        <div class="description-box desc-lesson">
+            <h3><i class="fas fa-book-reader"></i> Bài học kinh nghiệm</h3>
+            <p>{{ treaty.bai_hoc_kinh_nghiem }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Các bên tham gia ký kết (Quốc gia) -->
+        {% if countries %}
+        <div class="related-section">
+            <h3><i class="fas fa-flag"></i> Các bên tham gia ký kết ({{ countries|length }})</h3>
+            <div class="related-list">
+                {% for country in countries %}
+                <a href="/country/detail/{{ country.name | urlencode }}" class="related-item hover-country">
+                    <div>
+                        <strong>{{ country.name }}</strong>
+                        <small style="display: block; margin-top: 4px;">
+                            <span class="role-badge participant">
+                                <i class="fas fa-pen-fade"></i> 
+                                {% if country.role == 'Tham gia ký kết' %}Bên tham gia ký kết{% else %}{{ country.role }}{% endif %}
+                            </span>
+                        </small>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Người ký & Đàm phán -->
+        {% if persons %}
+        <div class="related-section">
+            <h3><i class="fas fa-user-tie"></i> Người ký & Đàm phán ({{ persons|length }})</h3>
+            <div class="related-list">
+                {% for person in persons %}
+                <a href="/person/detail/{{ person.name | urlencode }}" class="related-item hover-person">
+                    <div>
+                        <strong>{{ person.name }}</strong>
+                        <small style="display: block; margin-top: 4px;">
+                            {% if person.role == 'Người ký' %}
+                                <span class="role-badge signer"><i class="fas fa-signature"></i> Người ký</span>
+                            {% elif person.role == 'Người đàm phán' %}
+                                <span class="role-badge negotiator"><i class="fas fa-comments"></i> Người đàm phán</span>
+                            {% else %}
+                                <span class="role-badge default"><i class="fas fa-tag"></i> {{ person.role }}</span>
+                            {% endif %}
+                        </small>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Sự kiện liên quan -->
+        {% if events %}
+        <div class="related-section">
+            <h3><i class="fas fa-calendar-alt"></i> Sự kiện liên quan ({{ events|length }})</h3>
+            <div class="related-list">
+                {% for event in events %}
+                <a href="/event/detail/{{ event.name | urlencode }}" class="related-item hover-event">
+                    <div>
+                        <strong>{{ event.name }}</strong>
+                        <small style="display: block; color: #7f8c8d; margin-top: 4px;">
+                            {% if event.start_time %}
+                                <i class="far fa-calendar"></i> <span class="format-date">{{ event.start_time | default('Chưa cập nhật', true) }}</span>
+                            {% endif %}
+                            {% if event.role %}
+                                • {% if event.role == 'Kết thúc sự kiện' %}
+                                    <span style="color: #27ae60;"><i class="fas fa-check-circle"></i> Kết thúc sự kiện</span>
+                                {% else %}
+                                    {{ event.role }}
+                                {% endif %}
+                            {% endif %}
+                        </small>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Tổ chức liên quan -->
+        {% if organizations %}
+        <div class="related-section">
+            <h3><i class="fas fa-building"></i> Tổ chức liên quan ({{ organizations|length }})</h3>
+            <div class="related-list">
+                {% for org in organizations %}
+                <a href="/organization/detail/{{ org.name | urlencode }}" class="related-item hover-organization">
+                    <div>
+                        <strong>{{ org.name }}</strong>
+                        <small style="display: block; color: #7f8c8d; margin-top: 4px;">{{ org.role or 'Tổ chức tham gia' }}</small>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Đồ thị tri thức -->
+        <div class="detail-graph">
+            <h3><i class="fas fa-project-diagram"></i> Đồ thị tri thức (Knowledge Graph)</h3>
+            <div id="graphContainer" class="graph-container"></div>
+            <div class="graph-legend">
+                <span><span class="dot" style="background: #e74c3c;"></span> Nhân vật</span>
+                <span><span class="dot" style="background: #f39c12;"></span> Sự kiện</span>
+                <span><span class="dot" style="background: #3498db;"></span> Tổ chức</span>
+                <span><span class="dot" style="background: #9b59b6;"></span> Hiệp định</span>
+                <span><span class="dot" style="background: #9bafaa;"></span> Quốc gia</span>
+                <span><span class="dot" style="background: #87ac0f;"></span> Thời kỳ</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/graph.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.format-date').forEach(el => {
+            const rawDate = el.innerText.trim();
+            if (rawDate && rawDate !== 'Chưa cập nhật' && !rawDate.includes('TCN')) {
+                if(typeof window.formatVNTime === 'function'){
+                    el.innerText = window.formatVNTime(rawDate);
+                }
+            }
+        });
+
+        if (typeof window.loadGraphData === 'function') {
+            window.loadGraphData('{{ treaty.name }}', 2, function(data) {
+                if (data.success && data.nodes.length > 0) {
+                    window.drawGraph(data, '{{ treaty.name }}');
+                } else {
+                    document.getElementById('graphContainer').innerHTML = 
+                        '<div style="text-align: center; padding: 50px;"><i class="fas fa-project-diagram" style="font-size: 48px; color: #ccc; margin-bottom: 10px;"></i><p style="color: #999;">Không có dữ liệu đồ thị</p></div>';
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}{{ period.name }} - Lịch sử Việt Nam{% endblock %}
+
+{% block content %}
+<div class="container" style="background: transparent; box-shadow: none; padding-top: 20px;">
+    <a href="javascript:history.back()" class="back-button">
+        <i class="fas fa-arrow-left"></i> Quay lại danh sách
+    </a>
+
+    <div class="detail-container">
+        <!-- Banner thời kỳ hoàn toàn mới -->
+        {% set end_y = period.end_year | string %}
+        <div class="period-hero">
+            <div class="period-hero-content">
+                <div class="period-hero-icon">
+                    <i class="fas fa-hourglass-half"></i>
+                </div>
+                <h1>{{ period.name }}</h1>
+                <div class="period-hero-years">
+                    <i class="fas fa-calendar-alt"></i>
+                    {{ period.start_year }} - 
+                    {% if end_y == '9999' or end_y == '2026' %}
+                        Nay
+                    {% else %}
+                        {{ period.end_year }}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Bối cảnh lịch sử -->
+        {% if period.description %}
+        <div class="description-box">
+            <h3><i class="fas fa-info-circle"></i> Bối cảnh lịch sử</h3>
+            <p>{{ period.description }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Ý nghĩa -->
+        {% if period.y_nghia %}
+        <div class="description-box desc-significance">
+            <h3><i class="fas fa-lightbulb"></i> Ý nghĩa & Đặc điểm nổi bật</h3>
+            <p>{{ period.y_nghia }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Sự kiện nổi bật -->
+        {% if events %}
+        <div class="related-section">
+            <h3><i class="fas fa-calendar-alt"></i> Các sự kiện nổi bật ({{ events|length }})</h3>
+            <div class="related-list">
+                {% for event in events %}
+                <a href="/event/detail/{{ event.name | urlencode }}" class="related-item hover-event">
+                    <div>
+                        <strong>{{ event.name }}</strong>
+                        <small style="display: block; margin-top: 6px;">
+                            <span class="event-time">
+                                <i class="fas fa-play"></i> Bắt đầu: <span class="format-date">{{ event.start_time }}</span>
+                            </span>
+                            {% if event.end_time %}
+                            <span class="event-time">
+                                <i class="fas fa-flag-checkered"></i> Kết thúc: <span class="format-date">{{ event.end_time }}</span>
+                            </span>
+                            {% endif %}
+                        </small>
+                        {% if event.locations %}
+                            <small style="display: -webkit-box; -webkit-line-clamp: 1; line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; margin-top: 6px; color: #555;">
+                                <i class="fas fa-map-marker-alt"></i> Địa điểm: {{ event.locations }}
+                            </small>
+                        {% endif %}
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Nhân vật tiêu biểu -->
+        {% if persons %}
+        <div class="related-section">
+            <h3><i class="fas fa-users"></i> Các nhân vật tiêu biểu ({{ persons|length }})</h3>
+            <div class="related-list">
+                {% for person in persons %}
+                <a href="/person/detail/{{ person.name | urlencode }}" class="related-item hover-person">
+                    <div>
+                        <strong>{{ person.name }}</strong>
+                        <small style="display: block; margin-top: 4px;">
+                            <i class="fas fa-tag"></i> Vai trò: {{ person.vai_tro | default('Nhân vật lịch sử', true) }}
+                        </small>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Đồ thị tri thức -->
+        <div class="detail-graph">
+            <h3><i class="fas fa-project-diagram"></i> Đồ thị tri thức (Knowledge Graph)</h3>
+            <div id="graphContainer" class="graph-container"></div>
+            <div class="graph-legend">
+                <span><span class="dot" style="background: #e74c3c;"></span> Nhân vật</span>
+                <span><span class="dot" style="background: #f39c12;"></span> Sự kiện</span>
+                <span><span class="dot" style="background: #3498db;"></span> Tổ chức</span>
+                <span><span class="dot" style="background: #9b59b6;"></span> Hiệp định</span>
+                <span><span class="dot" style="background: #9bafaa;"></span> Quốc gia</span>
+                <span><span class="dot" style="background: #87ac0f;"></span> Thời kỳ</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/graph.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.format-date').forEach(el => {
+            const rawDate = el.innerText.trim();
+            if (rawDate && rawDate !== 'Chưa cập nhật' && !rawDate.includes('TCN')) {
+                if(typeof window.formatVNTime === 'function'){
+                    el.innerText = window.formatVNTime(rawDate);
+                }
+            }
+        });
+
+        if(typeof window.loadGraphData === 'function') {
+            window.loadGraphData('{{ period.name }}', 2, function(data) {
+                if (data.success && data.nodes.length > 0) {
+                    window.drawGraph(data, '{{ period.name }}');
+                } else {
+                    document.getElementById('graphContainer').innerHTML = 
+                        '<div style="text-align:center; padding:50px; color:#999;">' +
+                        '<i class="fas fa-project-diagram" style="font-size:48px;"></i>' +
+                        '<p>Không có dữ liệu đồ thị</p></div>';
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

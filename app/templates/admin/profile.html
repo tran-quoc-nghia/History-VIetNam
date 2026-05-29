@@ -1,0 +1,145 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Hồ sơ tài khoản Quản trị{% endblock %}
+{% block page_title %}Thông tin tài khoản{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-container {
+        max-width: 650px;
+        margin: 20px auto;
+        background: white;
+        padding: 40px;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    }
+    .profile-header {
+        text-align: center;
+        margin-bottom: 35px;
+    }
+    .profile-avatar {
+        width: 100px;
+        height: 100px;
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        color: white;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 45px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 10px rgba(30, 60, 114, 0.3);
+    }
+    .profile-container .form-group {
+        margin-bottom: 25px;
+    }
+    .profile-container label {
+        display: block;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 8px;
+    }
+    .profile-container input {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #bdc3c7;
+        border-radius: 6px;
+        background: #f8f9fa;
+        font-size: 15px;
+        box-sizing: border-box;
+        transition: all 0.3s;
+    }
+    .profile-container input:focus {
+        background: #ffffff;
+        border-color: #3498db;
+        box-shadow: 0 0 5px rgba(52, 152, 219, 0.2);
+        outline: none;
+    }
+    .flash-msg {
+        padding: 15px;
+        margin-bottom: 25px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 14.5px;
+    }
+    .flash-msg.success { background: #eafaf1; color: #27ae60; border-left: 4px solid #27ae60; }
+    .flash-msg.error { background: #fde8e8; color: #e74c3c; border-left: 4px solid #e74c3c; }
+    
+    .action-buttons {
+        margin-top: 40px;
+        text-align: right;
+        display: flex;
+        justify-content: flex-end;
+        gap: 15px;
+    }
+    .btn-cancel {
+        padding: 12px 25px;
+        background: #ecf0f1;
+        color: #7f8c8d;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: bold;
+        transition: background 0.3s;
+    }
+    .btn-cancel:hover { background: #bdc3c7; color: #2c3e50; }
+    .btn-save {
+        padding: 12px 25px;
+        background: #2ecc71;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 15px;
+        transition: background 0.3s;
+    }
+    .btn-save:hover { background: #27ae60; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <div class="profile-header">
+        <div class="profile-avatar">
+            <i class="fas fa-user-shield"></i>
+        </div>
+        <h2 style="margin: 0; color: #1e3c72; font-size: 24px;">Hồ sơ Quản trị viên</h2>
+        <p style="color: #7f8c8d; margin-top: 5px;">Cập nhật thông tin và bảo mật tài khoản</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-msg {{ category }}">
+                    <i class="fas {% if category == 'success' %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i> 
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="/admin/profile">
+        <div class="form-group">
+            <label><i class="fas fa-id-card" style="color: #3498db; width: 20px;"></i> Tên hiển thị</label>
+            <input type="text" name="name" value="{{ admin.name }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label><i class="fas fa-envelope" style="color: #3498db; width: 20px;"></i> Địa chỉ Email</label>
+            <input type="email" name="email" value="{{ admin.email }}" required>
+            <small style="color: #95a5a6; display: block; margin-top: 5px; font-style: italic;">(Email này dùng để đăng nhập và nhận thông báo bảo mật)</small>
+        </div>
+
+        <div class="form-group" style="margin-top: 35px; padding-top: 25px; border-top: 2px dashed #ecf0f1;">
+            <label><i class="fas fa-lock" style="color: #e74c3c; width: 20px;"></i> Đổi mật khẩu mới (Tùy chọn)</label>
+            <input type="password" name="password" placeholder="Bỏ trống nếu không muốn đổi mật khẩu" minlength="6">
+            <small style="color: #e74c3c; display: block; margin-top: 5px;"><i class="fas fa-info-circle"></i> Chỉ nhập khi bạn thực sự muốn đổi mật khẩu hiện tại.</small>
+        </div>
+
+        <div class="action-buttons">
+            <a href="/admin/personAdmin" class="btn-cancel"><i class="fas fa-times"></i> Hủy bỏ</a>
+            <button type="submit" class="btn-save"><i class="fas fa-paper-plane"></i> Gửi yêu cầu cập nhật</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

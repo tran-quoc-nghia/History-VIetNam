@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}{{ event.name }} - Lịch sử Việt Nam{% endblock %}
+
+{% block content %}
+<div class="container" style="background: transparent; box-shadow: none; padding-top: 20px;">
+    <a href="javascript:history.back()" class="back-button" style="margin-bottom: 25px;">
+        <i class="fas fa-arrow-left"></i> Quay lại danh sách
+    </a>
+
+    <div class="detail-container">
+        <!-- Hàng trên: ảnh + info grid -->
+        <div class="detail-top-row">
+            <!-- Cột trái: ảnh và tên sự kiện -->
+            <div class="detail-avatar-wrapper">
+                <div class="detail-avatar avatar-event" id="eventAvatar">
+                    <img src="{% if event.image_url %}/static/images/events/{{ event.image_url }}{% else %}/static/images/default.jpg{% endif %}" 
+                         alt="{{ event.name }}" 
+                         id="eventImage"
+                         onerror="this.onerror=null; this.src='/static/images/default.jpg';">
+                </div>
+                <h2>{{ event.name }}</h2>
+                <p class="event-type">Sự kiện lịch sử</p>
+                {% if periods %}
+                    {% for period in periods %}
+                        {% set end_y = period.end_year | string %}
+                        <span class="period-badge">
+                            <i class="fas fa-hourglass-half"></i> {{ period.name }} 
+                            ({{ period.start_year }} - {% if end_y == '9999' or end_y == '2026' %}Nay{% else %}{{ period.end_year }}{% endif %})
+                        </span>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <!-- Cột phải: info grid -->
+            <div class="detail-info-right">
+                <div class="info-grid">
+                    <div class="info-item hover-event">
+                        <span class="info-label"><i class="fas fa-play"></i> Bắt đầu</span>
+                        <span class="info-value format-date">{{ event.start_time | default('Chưa cập nhật', true) }}</span>
+                    </div>
+                    {% if event.end_time %}
+                    <div class="info-item hover-event">
+                        <span class="info-label"><i class="fas fa-stop"></i> Kết thúc</span>
+                        <span class="info-value format-date">{{ event.end_time | default('Chưa cập nhật', true) }}</span>
+                    </div>
+                    {% endif %}
+                    {% if event.locations %}
+                    <div class="info-item hover-event">
+                        <span class="info-label"><i class="fas fa-map-marker-alt"></i> Địa điểm</span>
+                        <span class="info-value">{{ event.locations }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if not periods %}
+                <p style="color: #4a5568; margin-top: 15px; font-size: 0.9rem; font-style: italic;">Sự kiện lịch sử</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Nguyên nhân -->
+        {% if event.nguyen_nhan %}
+        <div class="description-box desc-cause">
+            <h3><i class="fas fa-question-circle"></i> Nguyên nhân</h3>
+            <p>{{ event.nguyen_nhan }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Diễn biến -->
+        {% if event.dien_bien %}
+        <div class="description-box desc-event">
+            <h3><i class="fas fa-info-circle"></i> Diễn biến</h3>
+            <p>{{ event.dien_bien }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Kết quả -->
+        {% if event.ket_qua %}
+        <div class="description-box desc-result">
+            <h3><i class="fas fa-star"></i> Kết quả</h3>
+            <p>{{ event.ket_qua }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Ý nghĩa lịch sử -->
+        {% if event.y_nghia %}
+        <div class="description-box desc-significance">
+            <h3><i class="fas fa-lightbulb"></i> Ý nghĩa lịch sử</h3>
+            <p>{{ event.y_nghia }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Bài học kinh nghiệm -->
+        {% if event.bai_hoc_kinh_nghiem %}
+        <div class="description-box desc-lesson">
+            <h3><i class="fas fa-book-reader"></i> Bài học kinh nghiệm</h3>
+            <p>{{ event.bai_hoc_kinh_nghiem }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Nhân vật liên quan -->
+        {% if persons %}
+        <div class="related-section">
+            <h3><i class="fas fa-users"></i> Nhân vật liên quan ({{ persons|length }})</h3>
+            <div class="related-list">
+                {% for person in persons %}
+                <a href="/person/detail/{{ person.name | urlencode }}" class="related-item hover-person">
+                    <div>
+                        <strong>{{ person.name }}</strong>
+                        <small style="display: block; margin-top: 4px;">
+                            <i class="fas fa-tag"></i> Vai trò: {{ person.role if person.role else person.relation }}
+                        </small>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Tổ chức liên quan -->
+        {% if organizations %}
+        <div class="related-section">
+            <h3><i class="fas fa-building"></i> Tổ chức liên quan ({{ organizations|length }})</h3>
+            <div class="related-list">
+                {% for org in organizations %}
+                <a href="/organization/detail/{{ org.name | urlencode }}" class="related-item hover-organization">
+                    <div>
+                        <strong>{{ org.name }}</strong>
+                        <small style="display: block; margin-top: 4px;">
+                            <i class="fas fa-tag"></i> Vai trò: {{ org.role if org.role else org.relation }}
+                        </small>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Đồ thị tri thức -->
+        <div class="detail-graph">
+            <h3><i class="fas fa-project-diagram"></i> Đồ thị tri thức (Knowledge Graph)</h3>
+            <div id="graphContainer" class="graph-container"></div>
+            <div class="graph-legend">
+                <span><span class="dot" style="background: #e74c3c;"></span> Nhân vật</span>
+                <span><span class="dot" style="background: #f39c12;"></span> Sự kiện</span>
+                <span><span class="dot" style="background: #3498db;"></span> Tổ chức</span>
+                <span><span class="dot" style="background: #9b59b6;"></span> Hiệp định</span>
+                <span><span class="dot" style="background: #9bafaa;"></span> Quốc gia</span>
+                <span><span class="dot" style="background: #87ac0f;"></span> Thời kỳ</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PHÓNG TO ẢNH -->
+<div id="imageModal" class="image-modal">
+    <span class="close-modal" id="closeModal">&times;</span>
+    <img class="modal-content" id="modalImage" src="" alt="Phóng to ảnh sự kiện">
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/graph.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Định dạng ngày tháng
+        document.querySelectorAll('.format-date').forEach(el => {
+            const rawDate = el.innerText.trim();
+            if (rawDate && rawDate !== 'Chưa cập nhật' && !rawDate.includes('TCN')) {
+                if(typeof window.formatVNTime === 'function'){
+                    el.innerText = window.formatVNTime(rawDate);
+                }
+            }
+        });
+
+        // Đồ thị tri thức
+        if(typeof window.loadGraphData === 'function') {
+            window.loadGraphData('{{ event.name }}', 2, function(data) {
+                if (data.success && data.nodes.length > 0) {
+                    window.drawGraph(data, '{{ event.name }}');
+                } else {
+                    document.getElementById('graphContainer').innerHTML = 
+                        '<div style="text-align:center; padding:60px; color:#999;">' +
+                        '<i class="fas fa-project-diagram" style="font-size:48px;"></i>' +
+                        '<p>Không có dữ liệu đồ thị</p></div>';
+                }
+            });
+        }
+
+        // ===== MODAL PHÓNG TO ẢNH =====
+        const eventImage = document.getElementById('eventImage');
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImage');
+        const closeBtn = document.getElementById('closeModal');
+
+        if (eventImage && modal && modalImg) {
+            eventImage.addEventListener('click', function() {
+                modal.classList.add('active');
+                modalImg.src = this.src;
+                modalImg.alt = this.alt;
+            });
+
+            closeBtn.addEventListener('click', function() {
+                modal.classList.remove('active');
+            });
+
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal.classList.contains('active')) {
+                    modal.classList.remove('active');
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

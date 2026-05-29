@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}Hỏi đáp Lịch sử Việt Nam | Đồ án tốt nghiệp{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section class="hero-section">
+        <div class="hero-content">
+            <h2>KHÁM PHÁ LỊCH SỬ VIỆT NAM</h2>
+            <h1>Hệ thống Hỏi đáp<br>Tri thức Lịch sử</h1>
+            <p class="hero-subtitle">
+                Tra cứu thông tin về nhân vật, sự kiện, tổ chức và hiệp định<br>
+                trong lịch sử Việt Nam một cách nhanh chóng và trực quan.
+            </p>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-number" id="totalPersons">0</span>
+                    <span class="stat-label">Nhân vật</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="totalEvents">0</span>
+                    <span class="stat-label">Sự kiện</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="totalOrganizations">0</span>
+                    <span class="stat-label">Tổ chức</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="totalTreaties">0</span>
+                    <span class="stat-label">Hiệp định</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="totalPeriods">0</span>
+                    <span class="stat-label">Thời kỳ</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-image">
+            <i class="fas fa-landmark"></i>
+        </div>
+    </section>
+
+    <section class="chat-promo-section" style="margin: 30px 0;">
+        <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); border-radius: 20px; padding: 30px 40px; display: flex; align-items: center; justify-content: space-between; color: white;">
+            <div>
+                <h2 style="font-size: 28px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px;">
+                    <i class="fas fa-robot" style="font-size: 36px;"></i>
+                    Trải nghiệm Chat AI Lịch sử
+                </h2>
+                <p style="font-size: 16px; opacity: 0.95; max-width: 600px;">
+                    Đặt câu hỏi tự nhiên và nhận câu trả lời ngay lập tức từ trợ lý AI. 
+                    Hỏi về nhân vật, sự kiện, xem sơ đồ quan hệ và nhiều hơn nữa!
+                </p>
+                <div style="margin-top: 20px;">
+                    <a href="/tracuu" style="display: inline-flex; align-items: center; gap: 10px; background: #ffd700; color: #1e3c72; padding: 14px 32px; border-radius: 40px; text-decoration: none; font-weight: 700; font-size: 16px; transition: all 0.3s;">
+                        <i class="fas fa-comments"></i> Bắt đầu Chat
+                        <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div style="font-size: 120px; opacity: 0.15;">
+                <i class="fas fa-robot"></i>
+            </div>
+        </div>
+    </section>
+
+    <section class="featured-section" style="margin: 40px 0;">
+        <h2 style="color: #1e3c72; margin-bottom: 25px; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-random" style="color: #e74c3c;"></i> Có thể bạn muốn biết
+        </h2>
+        <div class="person-grid" id="featuredPersons">
+            </div>
+        <div style="text-align: right; margin-top: 15px;">
+            <a href="/person/list" style="color: #2a5298; text-decoration: none; font-weight: 600;">
+                Xem tất cả nhân vật <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+    </section>
+
+    <section class="featured-section" style="margin: 40px 0;">
+        <h2 style="color: #1e3c72; margin-bottom: 25px; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-history" style="color: #f39c12;"></i> Sự kiện ngẫu nhiên
+        </h2>
+        <div class="event-grid" id="featuredEvents">
+            </div>
+        <div style="text-align: right; margin-top: 15px;">
+            <a href="/event/list" style="color: #2a5298; text-decoration: none; font-weight: 600;">
+                Khám phá dòng thời gian <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/core/tienich.js') }}"></script>
+<script>
+    // ==================== HÀM AN TOÀN FORMAT NGÀY (TRÁNH TCN) ====================
+    function safeFormatDate(dateStr) {
+        if (!dateStr || dateStr === 'null' || dateStr === 'None') return '?';
+        dateStr = String(dateStr).trim();
+        if (dateStr.includes('TCN')) return dateStr;
+        return typeof window.formatVNTime === 'function' ? window.formatVNTime(dateStr) : dateStr;
+    }
+
+    // ==================== TÍNH NĂNG XÁO TRỘN MẢNG ====================
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    // ==================== INDEX PAGE SCRIPTS ====================
+    
+    // Load thống kê
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/stats');
+            const data = await response.json();
+            
+            if (data.success) {
+                const stats = data.stats;
+                document.getElementById('totalPersons').textContent = stats.NhanVat || 0;
+                document.getElementById('totalEvents').textContent = stats.SuKien || 0;
+                document.getElementById('totalOrganizations').textContent = stats.ToChuc || 0;
+                document.getElementById('totalTreaties').textContent = stats.HiepDinh || 0;
+                document.getElementById('totalPeriods').textContent = stats.ThoiKy || 0;
+            }
+        } catch (error) {
+            console.error('Lỗi load stats:', error);
+        }
+    }
+    
+    // Load nhân vật ngẫu nhiên (CÓ XỬ LÝ LỖI NaN)
+    async function loadFeaturedPersons() {
+        try {
+            const response = await fetch('/api/persons/full');
+            // Đọc dưới dạng Text trước
+            const textData = await response.text();
+            // Dùng Regex tìm chữ NaN và biến thành null để tránh lỗi SyntaxError của JSON.parse
+            const cleanText = textData.replace(/:\s*NaN\b/g, ': null');
+            const data = JSON.parse(cleanText);
+            
+            if (data.success && data.persons && data.persons.length > 0) {
+                const shuffledPersons = shuffleArray([...data.persons]);
+                const randomPersons = shuffledPersons.slice(0, 4);
+                
+                const html = randomPersons.map(p => {
+                    const imagePath = p.image_url ? `/static/images/persons/${p.image_url}` : '';
+                    return `
+                        <div class="person-card" onclick="window.location.href='/person/detail/${encodeURIComponent(p.name)}'">
+                            <div class="person-avatar">
+                                <img src="${imagePath}" 
+                                    alt="${p.name}"
+                                    style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;"
+                                    onerror="this.onerror=null; this.src='/static/images/default.jpg'; this.classList.add('fallback');">
+                            </div>
+                            <div class="card-info">
+                                <h3>${p.name}</h3>
+                                <div class="meta"><i class="fas fa-tag"></i> Vai trò: ${p.vai_tro || 'Nhân vật lịch sử'}</div>
+                                <div class="meta"><i class="fas fa-birthday-cake"></i> Sinh: ${safeFormatDate(p.ngay_sinh) || 'Chưa rõ'}</div>
+                                <div class="meta"><i class="fas fa-cross"></i> Mất: ${safeFormatDate(p.ngay_mat) || 'Chưa rõ'}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                document.getElementById('featuredPersons').innerHTML = html;
+            } else {
+                document.getElementById('featuredPersons').innerHTML = '<p style="color: #999;">Chưa có dữ liệu nhân vật.</p>';
+            }
+        } catch (error) {
+            console.error('Lỗi load persons:', error);
+            document.getElementById('featuredPersons').innerHTML = '<p style="color: #999;">Đang tải dữ liệu...</p>';
+        }
+    }
+    
+    // Load sự kiện ngẫu nhiên (CÓ XỬ LÝ LỖI NaN)
+    async function loadFeaturedEvents() {
+        try {
+            const response = await fetch('/api/events/full');
+            // Xử lý NaN cho sự kiện tương tự như nhân vật
+            const textData = await response.text();
+            const cleanText = textData.replace(/:\s*NaN\b/g, ': null');
+            const data = JSON.parse(cleanText);
+            
+            if (data.success && data.events && data.events.length > 0) {
+                let allEvents = [];
+                data.events.forEach(period => {
+                    if (period.events && period.events.length > 0) {
+                        allEvents = allEvents.concat(period.events);
+                    }
+                });
+
+                if (allEvents.length > 0) {
+                    const shuffledEvents = shuffleArray(allEvents);
+                    const randomEvents = shuffledEvents.slice(0, 4);
+
+                    const html = randomEvents.map(e => {
+                        const imagePath = e.image_url ? `/static/images/events/${e.image_url}` : '';
+                        let timeHtml = `<div class="meta"><i class="fas fa-play"></i> Bắt đầu: ${safeFormatDate(e.start_time) || 'Chưa rõ'}</div>`;
+                        if (e.end_time) {
+                            timeHtml += `<div class="meta"><i class="fas fa-flag-checkered"></i> Kết thúc: ${safeFormatDate(e.end_time)}</div>`;
+                        }
+                        return `
+                            <div class="event-card" onclick="window.location.href='/event/detail/${encodeURIComponent(e.name)}'">
+                                <div class="person-avatar" style="border-radius: 8px;">
+                                    <img src="${imagePath}" 
+                                        alt="${e.name}"
+                                        style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;"
+                                        onerror="this.onerror=null; this.src='/static/images/default.jpg'; this.classList.add('fallback');">
+                                </div>
+                                <div class="card-info">
+                                    <h3>${e.name}</h3>
+                                    ${timeHtml}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    document.getElementById('featuredEvents').innerHTML = html;
+                } else {
+                    document.getElementById('featuredEvents').innerHTML = '<p style="color: #999;">Chưa có dữ liệu sự kiện.</p>';
+                }
+            }
+        } catch (error) {
+            console.error('Lỗi load events:', error);
+            document.getElementById('featuredEvents').innerHTML = '<p style="color: #999;">Đang tải dữ liệu...</p>';
+        }
+    }
+    
+    // Khởi tạo khi trang load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStats();
+        loadFeaturedPersons();
+        loadFeaturedEvents();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,269 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Thêm Mối quan hệ{% endblock %}
+
+{% block extra_css %}
+    <style>
+        .form-layout { max-width: 700px; margin: 40px auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; }
+        .form-group select, .form-group input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-family: inherit; font-size: 15px;}
+        
+        /* Style cho bộ lọc nhãn */
+        .filter-group { background: #f0f4f8; padding: 15px; border-radius: 8px; border: 1px dashed #2a5298; margin-bottom: 10px; }
+        .filter-group label { color: #2a5298; font-size: 14px; text-transform: uppercase; }
+
+        .btn-save { background: #2a5298; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn-cancel { background: #95a5a6; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; text-decoration: none; display: inline-block; margin-left: 10px;}
+        .relation-diagram { text-align: center; font-size: 24px; color: #f39c12; margin: 10px 0; }
+    </style>
+{% endblock %}
+
+{% block content %}
+            <div class="form-layout">
+                <!-- <div class="form-group" style="background: #e8f4fd; padding: 20px; border-radius: 10px; border: 2px dashed #3498db; margin-bottom: 25px;">
+                    <label style="color: #2980b9; font-size: 1.1em;"><i class="fas fa-robot"></i> Trợ lý AI Trích xuất (Thử nghiệm)</label>
+                    <p style="font-size: 13px; color: #555; margin-bottom: 10px;">
+                        Nhập một câu mô tả lịch sử (VD: <i>"Võ Nguyên Giáp là tổng chỉ huy của Chiến dịch Điện Biên Phủ"</i>), AI sẽ tự động phân tích và điền form giúp bạn.
+                    </p>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="aiInput" placeholder="Dán đoạn văn bản lịch sử vào đây..." style="flex: 1; border-color: #3498db;">
+                        <button id="btnAiExtract" type="button" style="background: #3498db; color: white; border: none; padding: 0 20px; border-radius: 5px; cursor: pointer; font-weight: bold; white-space: nowrap;">
+                            <i class="fas fa-magic"></i> Phân tích
+                        </button>
+                    </div>
+                    <div id="aiLoading" style="display: none; margin-top: 10px; color: #f39c12; font-size: 14px;">
+                        <i class="fas fa-spinner fa-spin"></i> AI đang suy nghĩ...
+                    </div>
+                </div> -->
+
+                <div id="crudForm">
+                    <div class="filter-group">
+                        <label><i class="fas fa-filter"></i> Loại thực thể Nguồn</label>
+                        <select id="sourceLabelFilter" onchange="filterNodes('sourceLabelFilter', 'sourceId')">
+                            <option value="all">-- Hiển thị tất cả --</option>
+                            {% for key, value in label_mapping.items() %}
+                                {% if key != 'Relationships' %}
+                                    <option value="{{ key }}">{{ value }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Thực thể nguồn (Từ) *</label>
+                        <select id="sourceId" required>
+                            <option value="">-- Chọn thực thể nguồn --</option>
+                            {% for node in nodes %}
+                                <option value="{{ node.id }}" data-label="{{ node.type }}"
+                                    {% if rel_data and rel_data.source_id == node.id %} selected 
+                                    {% elif pre_source_id == node.id %} selected {% endif %}>
+                                    {{ node.name }} [{{ label_mapping.get(node.type, node.type) }}]
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Loại mối quan hệ *</label>
+                        <input type="text" id="relType" list="existingRelTypes" required 
+                            placeholder="Chọn hoặc nhập mới..." 
+                            value="{{ rel_data.rel_type if rel_data else '' }}">
+                        <datalist id="existingRelTypes">
+                            {% for type in rel_types %}
+                                <option value="{{ type }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label><i class="fas fa-filter"></i> Loại thực thể Đích</label>
+                        <select id="targetLabelFilter" onchange="filterNodes('targetLabelFilter', 'targetId')">
+                            <option value="all">-- Hiển thị tất cả --</option>
+                            {% for key, value in label_mapping.items() %}
+                                {% if key != 'Relationships' %}
+                                    <option value="{{ key }}">{{ value }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Thực thể đích (Đến) *</label>
+                        <select id="targetId" required>
+                            <option value="">-- Chọn thực thể đích --</option>
+                            {% for node in nodes %}
+                                <option value="{{ node.id }}" data-label="{{ node.type }}"
+                                    {% if rel_data and rel_data.target_id == node.id %} selected {% endif %}>
+                                    {{ node.name }} [{{ label_mapping.get(node.type, node.type) }}]
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: right;">
+                        <a href="/admin/relationshipAdmin" class="btn-cancel">Hủy bỏ</a>
+                        <button class="btn-save" onclick="saveData()"><i class="fas fa-save"></i> Lưu Liên Kết</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        const allOptions = {
+            sourceId: Array.from(document.getElementById('sourceId').options),
+            targetId: Array.from(document.getElementById('targetId').options)
+        };
+
+        function filterNodes(filterSelectId, targetSelectId) {
+            const label = document.getElementById(filterSelectId).value;
+            const targetSelect = document.getElementById(targetSelectId);
+            
+            targetSelect.innerHTML = '';
+
+            allOptions[targetSelectId].forEach(opt => {
+                const optLabel = opt.getAttribute('data-label');
+                if (opt.value === "" || label === 'all' || optLabel === label) {
+                    targetSelect.appendChild(opt.cloneNode(true));
+                }
+            });
+            
+            targetSelect.selectedIndex = 0; 
+        }
+
+        // Hàm hỗ trợ: Chuyển tiếng Việt có dấu thành không dấu
+        function removeVietnameseTones(str) {
+            str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+            str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+            str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+            str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+            str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+            str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+            str = str.replace(/đ/g, "d");
+            str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+            str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+            str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
+            str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ữ/g, "O");
+            str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+            str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+            str = str.replace(/Đ/g, "D");
+            return str;
+        }
+
+        function saveData() {
+            const sourceId = document.getElementById('sourceId').value;
+            const targetId = document.getElementById('targetId').value;
+            
+            let rawRelType = document.getElementById('relType').value;
+            let relType = removeVietnameseTones(rawRelType);
+            relType = relType.trim().toUpperCase().replace(/\s+/g, '_');
+
+            if (!sourceId || !targetId || !relType) {
+                alert("Vui lòng chọn đầy đủ Nguồn, Đích và nhập Loại quan hệ!");
+                return;
+            }
+
+            if (sourceId === targetId) {
+                alert("Thực thể nguồn và đích không được giống nhau!");
+                return;
+            }
+
+            const payloadData = {
+                source_id: sourceId,
+                target_id: targetId,
+                rel_type: relType
+            };
+
+            fetch('/admin/api/relationships', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payloadData)
+            })
+            .then(res => res.json())
+            .then(result => {
+                if(result.success) {
+                    alert(result.message);
+                    window.location.href = '/admin/relationshipAdmin';
+                } else {
+                    alert("Lỗi: " + result.error);
+                }
+            })
+            .catch(err => alert("Lỗi kết nối API: " + err));
+        }
+
+        // Xử lý sự kiện cho nút AI Extract
+        // --- XỬ LÝ AI EXTRACT ---
+        // document.getElementById('btnAiExtract').addEventListener('click', function() {
+        //     const textInput = document.getElementById('aiInput').value.trim();
+        //     if (!textInput) {
+        //         alert("Vui lòng nhập văn bản để AI phân tích!");
+        //         return;
+        //     }
+
+        //     // Hiển thị trạng thái loading
+        //     document.getElementById('aiLoading').style.display = 'block';
+        //     this.disabled = true;
+
+        //     fetch('/admin/api/ai/extract-relation', {
+        //         method: 'POST',
+        //         headers: { 'Content-Type': 'application/json' },
+        //         body: JSON.stringify({ text: textInput })
+        //     })
+        //     .then(res => res.json())
+        //     .then(result => {
+        //         document.getElementById('aiLoading').style.display = 'none';
+        //         document.getElementById('btnAiExtract').disabled = false;
+
+        //         if (result.success) {
+        //             const aiData = result.data;
+        //             console.log("AI phân tích được:", aiData); // Mở F12 để xem chi tiết
+                    
+        //             // Hàm phụ: Tìm Option gần giống nhất trong Select (không phân biệt hoa/thường)
+        //             function findOptionByText(selectElement, searchText) {
+        //                 const searchLower = searchText.toLowerCase();
+        //                 // Vì danh sách của bạn có dạng "Tên (Loại)", ví dụ "Võ Nguyên Giáp (NhanVat)"
+        //                 // Nên ta kiểm tra xem chuỗi option có chứa tên mà AI tìm được không
+        //                 for (let i = 0; i < selectElement.options.length; i++) {
+        //                     const optText = selectElement.options[i].text.toLowerCase();
+        //                     if (optText.includes(searchLower)) {
+        //                         return selectElement.options[i].value;
+        //                     }
+        //                 }
+        //                 return null;
+        //             }
+
+        //             // 1. Điền Nguồn
+        //             const sourceSelect = document.getElementById('sourceId');
+        //             const foundSourceId = findOptionByText(sourceSelect, aiData.source_name);
+        //             if (foundSourceId) {
+        //                 sourceSelect.value = foundSourceId;
+        //             } else {
+        //                 alert(`Lưu ý: AI tìm thấy nguồn là "${aiData.source_name}" nhưng không có trong CSDL của bạn.`);
+        //             }
+
+        //             // 2. Điền Đích
+        //             const targetSelect = document.getElementById('targetId');
+        //             const foundTargetId = findOptionByText(targetSelect, aiData.target_name);
+        //             if (foundTargetId) {
+        //                 targetSelect.value = foundTargetId;
+        //             } else {
+        //                 alert(`Lưu ý: AI tìm thấy đích là "${aiData.target_name}" nhưng không có trong CSDL của bạn.`);
+        //             }
+
+        //             // 3. Điền Loại quan hệ
+        //             document.getElementById('relType').value = aiData.rel_type;
+
+        //         } else {
+        //             alert("Lỗi AI: " + result.error);
+        //         }
+        //     })
+        //     .catch(err => {
+        //         document.getElementById('aiLoading').style.display = 'none';
+        //         document.getElementById('btnAiExtract').disabled = false;
+        //         alert("Lỗi kết nối đến API AI: " + err);
+        //     });
+        // });
+    </script>
+{% endblock %}

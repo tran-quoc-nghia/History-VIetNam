@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Quản trị hệ thống{% endblock %} - Lịch sử Việt Nam</title>
+    
+    <!-- Link Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        /* ================= BỐ CỤC CHUNG ================= */
+        :root {
+            --sidebar-width: 260px;
+            --primary-blue: #3b82f6; /* Màu xanh chủ đạo của hệ thống mới */
+            --active-bg: #eff6ff;    /* Màu nền khi đang chọn menu */
+            --text-gray: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8fafc;
+            color: #333;
+        }
+
+        .admin-wrapper {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ================= SIDEBAR (MENU BÊN TRÁI) ================= */
+        .admin-sidebar {
+            width: var(--sidebar-width);
+            background: white;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+        .admin-sidebar.collapsed {
+            margin-left: calc(-1 * var(--sidebar-width)); /* Đẩy thanh menu giấu sang bên trái */
+        }
+
+        .sidebar-logo {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            color: var(--primary-blue);
+            border-bottom: 1px solid var(--border-color);
+            gap: 12px;
+        }
+
+        .sidebar-logo i {
+            font-size: 24px;
+        }
+
+        .logo-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+
+        .logo-text .brand {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .logo-text .role {
+            font-size: 12px;
+            color: var(--primary-blue);
+            font-weight: 500;
+        }
+        
+        .sidebar-menu {
+            list-style: none;
+            padding: 15px 15px;
+            margin: 0;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .sidebar-menu li {
+            margin-bottom: 4px;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 15px;
+            color: var(--text-gray);
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .sidebar-menu a:hover {
+            background: #f1f5f9;
+        }
+
+        /* Nổi bật Menu đang được chọn giống trong ảnh */
+        .sidebar-menu li.active a {
+            background: var(--active-bg);
+            color: var(--primary-blue);
+            font-weight: 600;
+        }
+
+        .sidebar-menu li.active a i {
+            color: var(--primary-blue);
+        }
+        
+        .sidebar-footer {
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #ef4444;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            transition: 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: #fef2f2;
+        }
+
+        /* ================= TOPBAR (THANH TRÊN CÙNG) ================= */
+        .admin-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .admin-topbar {
+            height: 60px;
+            background: white;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 25px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .toggle-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: #333;
+            cursor: pointer;
+        }
+
+        .topbar-center {
+            flex: 1;
+            text-align: center;
+        }
+
+        .topbar-center h2 {
+            margin: 0;
+            font-size: 20px;
+            color: #1e293b;
+            font-weight: 700;
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+            font-size: 14px;
+        }
+
+        .time-display {
+            color: var(--primary-blue);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .user-greeting {
+            color: var(--text-gray);
+            font-weight: 500;
+        }
+
+        /* ================= KHU VỰC NỘI DUNG ================= */
+        .admin-content-body {
+            flex: 1;
+            padding: 25px;
+            overflow-y: auto;
+        }
+    </style>
+    
+    <!-- Giữ lại các style cũ để không làm hỏng Table và Form -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="admin-wrapper">
+        
+        <!-- ================= SIDEBAR ================= -->
+        <aside class="admin-sidebar">
+            <div class="sidebar-logo">
+                <i class="fas fa-user-shield"></i>
+                <div class="logo-text">
+                    <span class="brand">Lịch Sử VN</span>
+                    <span class="role">Admin</span>
+                </div>
+            </div>
+            
+            <ul class="sidebar-menu">
+                <li class="{% if request.path == '/admin/' %}active{% endif %}">
+                    <a href="/"><i class="fas fa-th-large"></i> Về trang chủ</a>
+                </li>
+                
+                <li class="{% if request.path == '/admin/' or request.path == '/admin/dashboard' %}active{% endif %}">
+                    <a href="/admin/dashboard"><i class="fas fa-chart-line"></i> Thống kê hệ thống</a>
+                </li>
+                
+                <li class="{% if 'personAdmin' in request.path %}active{% endif %}">
+                    <a href="/admin/personAdmin"><i class="fas fa-users"></i> QL Nhân vật</a>
+                </li>
+                
+                <li class="{% if 'eventAdmin' in request.path %}active{% endif %}">
+                    <a href="/admin/eventAdmin"><i class="fas fa-calendar-alt"></i> QL Sự kiện</a>
+                </li>
+                
+                <li class="{% if 'organizationAdmin' in request.path %}active{% endif %}">
+                    <a href="/admin/organizationAdmin"><i class="fas fa-building"></i> QL Tổ chức</a>
+                </li>
+                
+                <li class="{% if 'treatyAdmin' in request.path %}active{% endif %}">
+                    <a href="/admin/treatyAdmin"><i class="fas fa-file-signature"></i> QL Hiệp định</a>
+                </li>
+                
+                <li class="{% if 'countryAdmin' in request.path %}active{% endif %}">
+                    <a href="/admin/countryAdmin"><i class="fas fa-globe-asia"></i> QL Quốc gia</a>
+                </li>
+                
+                <li class="{% if 'periodAdmin' in request.path %}active{% endif %}">
+                    <a href="/admin/periodAdmin"><i class="fas fa-hourglass-half"></i> QL Thời kỳ</a>
+                </li>
+                
+                <li class="{% if 'relationshipAdmin' in request.path %}active{% endif %}">
+                    <a href="/admin/relationshipAdmin"><i class="fas fa-share-alt"></i> QL Quan hệ</a>
+                </li>
+
+                <li class="{% if 'backupAdmin' in request.path %}active{% endif %}">
+                    <a href="/admin/backupAdmin"><i class="fas fa-database"></i> Sao lưu & Phục hồi</a>
+                </li>
+            </ul>
+            
+            <div class="sidebar-footer">
+                <!-- Liên kết Tài khoản của tôi được chuyển xuống đây, ngay phía trên Đăng xuất -->
+                <a href="/admin/profile" class="profile-link" style="
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    color: #64748b;
+                    text-decoration: none;
+                    font-size: 14px;
+                    padding: 10px 15px;
+                    border-radius: 8px;
+                    transition: 0.2s;
+                    margin-bottom: 5px;
+                " onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Tài khoản của tôi</span>
+                </a>
+
+                <a href="/admin/logout" class="logout-btn" style="margin-top: 5px;">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </a>
+            </div>
+        </aside>
+
+        <!-- ================= MAIN CONTENT ================= -->
+        <div class="admin-main">
+            <!-- TOP HEADER -->
+            <header class="admin-topbar">
+                <div class="topbar-left">
+                    <button class="toggle-btn"><i class="fas fa-bars"></i></button>
+                </div>
+                
+                <div class="topbar-center">
+                    <!-- Tự động lấy tên chức năng hiển thị lên Header giống trong ảnh -->
+                    <h2>{% block page_title %}{{ self.title() }}{% endblock %}</h2>
+                </div>
+                
+                <div class="topbar-right">
+                    <div class="time-display">
+                        <i class="far fa-clock"></i>
+                        <span id="liveTime"></span>
+                    </div>
+                    <div class="user-greeting">
+                        Xin chào, Admin
+                    </div>
+                </div>
+            </header>
+
+            <!-- PHẦN NỘI DUNG THAY ĐỔI -->
+            <div class="admin-content-body">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/core/tienich.js') }}"></script>
+    
+    <!-- Đoạn JS để chạy đồng hồ giống hệt trong ảnh -->
+    <script>
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('vi-VN', { hour12: false });
+            const dateStr = now.toLocaleDateString('vi-VN');
+            document.getElementById('liveTime').textContent = `${timeStr} — ${dateStr}`;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleBtn = document.querySelector('.toggle-btn');
+            const sidebar = document.querySelector('.admin-sidebar');
+            
+            if (toggleBtn && sidebar) {
+                toggleBtn.addEventListener('click', function() {
+                    // Bật/tắt class 'collapsed' mỗi khi bấm nút
+                    sidebar.classList.toggle('collapsed');
+                });
+            }
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

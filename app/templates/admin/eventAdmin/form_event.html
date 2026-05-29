@@ -1,0 +1,300 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{{ 'Sửa Sự Kiện' if event else 'Thêm Sự Kiện' }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ========== PHÓNG TO Ô NHẬP & TẠO GIAO DIỆN DẠNG WORD ========== */
+    #crudForm textarea {
+        font-size: 16px;
+        padding: 15px 18px;
+        min-height: 160px;
+        background: #ffffff;
+        border: 1px solid #d0d5dd;
+        border-radius: 10px;
+        line-height: 1.7;
+        resize: vertical;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        font-family: 'Segoe UI', Roboto, sans-serif;
+    }
+    #crudForm textarea:focus {
+        border-color: #2a5298;
+        box-shadow: 0 0 0 3px rgba(42,82,152,0.1);
+        outline: none;
+    }
+    /* Tăng chiều cao riêng cho Diễn biến */
+    #nodeDescription {
+        min-height: 220px;
+    }
+    #crudForm input[type="text"],
+    #crudForm input[type="file"] {
+        font-size: 16px;
+        padding: 12px 18px;
+        border: 1px solid #d0d5dd;
+        border-radius: 10px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        background: #ffffff;
+    }
+    #crudForm input[type="text"]:focus {
+        border-color: #2a5298;
+        box-shadow: 0 0 0 3px rgba(42,82,152,0.1);
+        outline: none;
+    }
+    #crudForm .form-group label {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #1e3c72;
+    }
+    #crudForm .form-group {
+        margin-bottom: 22px;
+    }
+    /* Nút bấm to hơn */
+    .btn-save, .btn-cancel {
+        font-size: 16px;
+        padding: 12px 28px;
+        border-radius: 8px;
+    }
+    /* Căn chỉnh grid cho cân đối */
+    .form-grid {
+        gap: 30px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-layout">
+    <p style="color: #e74c3c; font-size: 13px; margin-bottom: 20px; font-style: italic;">
+        <i class="fas fa-info-circle"></i> Hệ thống sẽ tự động xếp Sự kiện vào "Thời kỳ" dựa trên Năm được ghi trong ô <strong>Ngày bắt đầu</strong>.
+    </p>
+
+    <div id="crudForm">
+        <input type="hidden" id="nodeId" value="{{ event.id if event else '' }}">
+                    
+        <div class="form-grid">
+            <div>
+                <div class="form-group">
+                    <label>Tên sự kiện <span style="color:red;">*</span></label>
+                    <input type="text" id="nodeName" value="{{ event.name if event else '' }}" placeholder="VD: Chiến thắng Điện Biên Phủ" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Ngày bắt đầu <span style="color:red;">*</span> <small style="font-weight: normal; color: #888;">(dd/mm/yyyy hoặc yyyy TCN)</small></label>
+                    <input type="text" id="nodeStartDate" value="{{ event.start_time if event else '' }}" placeholder="VD: 13/03/1954 hoặc 257 TCN" required>
+                </div>
+                <div class="form-group">
+                    <label>Ngày kết thúc <span style="color:red;">*</span> <small style="font-weight: normal; color: #888;">(dd/mm/yyyy hoặc yyyy TCN)</small></label>
+                    <input type="text" id="nodeEndDate" value="{{ event.end_time if event else '' }}" placeholder="VD: 07/05/1954 hoặc 179 TCN" required>
+                </div>
+            </div>
+
+            <div>
+                <div class="form-group">
+                    <label>Địa điểm</label>
+                    <input type="text" id="nodeLocations" value="{{ event.locations if event and event.locations else '' }}" placeholder="VD: Điện Biên, Việt Nam">
+                </div>
+                <div class="form-group">
+                    <label>Ảnh sự kiện</label>
+                    {% if event and event.image_url %}
+                        <div style="margin-bottom: 10px;">
+                            <img src="/static/images/events/{{ event.image_url }}" width="100" style="border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                            <input type="hidden" id="currentImage" value="{{ event.image_url }}">
+                        </div>
+                    {% endif %}
+                    <input type="file" id="nodeImageFile" accept="image/*">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <label>Nguyên nhân</label>
+            <textarea id="nodeNguyenNhan" rows="3" placeholder="Nguyên nhân bùng nổ hoặc dẫn đến sự kiện...">{{ event.nguyen_nhan if event else '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Mô tả diễn biến</label>
+            <textarea id="nodeDescription" rows="5" placeholder="Tóm tắt diễn biến chính...">{{ event.dien_bien if event else '' }}</textarea>
+        </div>
+                    
+
+        <div class="form-group">
+            <label>Kết quả</label>
+            <textarea id="nodeKetQua" rows="3" placeholder="Kết quả của sự kiện...">{{ event.ket_qua if event else '' }}</textarea>
+        </div>
+        <div class="form-group">
+            <label>Ý nghĩa lịch sử</label>
+            <textarea id="nodeYNghia" rows="3" placeholder="Ý nghĩa và tầm ảnh hưởng...">{{ event.y_nghia if event else '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Bài học kinh nghiệm</label>
+            <textarea id="nodeBaiHoc" rows="3" placeholder="Bài học rút ra từ sự kiện...">{{ event.bai_hoc_kinh_nghiem if event else '' }}</textarea>
+        </div>
+
+        <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; text-align: right;">
+            <a href="/admin/eventAdmin" class="btn-cancel" style="background: #95a5a6; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; margin-right: 10px;"><i class="fas fa-times"></i> Hủy bỏ</a>
+            <button class="btn-save" onclick="saveData()" style="background: #2ecc71; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;"><i class="fas fa-save"></i> Lưu dữ liệu</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function saveData() {
+    // Xóa toàn bộ thông báo lỗi cũ
+    document.querySelectorAll('.error-msg').forEach(el => el.remove());
+
+    // Reset viền về trạng thái bình thường
+    const fieldIds = ['nodeName', 'nodeStartDate', 'nodeEndDate', 'nodeLocations', 
+                      'nodeNguyenNhan', 'nodeDescription', 'nodeKetQua', 'nodeYNghia', 'nodeBaiHoc'];
+    fieldIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.borderColor = '#ccc';
+    });
+
+    let nameField = document.getElementById('nodeName').value.trim();
+    let startDate = document.getElementById('nodeStartDate').value.trim();
+    let endDate = document.getElementById('nodeEndDate').value.trim();
+    let locations = document.getElementById('nodeLocations').value.trim();
+    let nguyenNhan = document.getElementById('nodeNguyenNhan').value.trim();
+    let dienBien = document.getElementById('nodeDescription').value.trim();
+    let ketQua = document.getElementById('nodeKetQua').value.trim();
+    let yNghia = document.getElementById('nodeYNghia').value.trim();
+    let baiHoc = document.getElementById('nodeBaiHoc').value.trim();
+
+    let isValid = true;
+    let firstFocus = null;
+
+    function showError(id, message) {
+        const el = document.getElementById(id);
+        el.style.borderColor = '#e74c3c';
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'error-msg';
+        errorMsg.style.color = '#e74c3c';
+        errorMsg.style.fontSize = '12.5px';
+        errorMsg.style.marginTop = '6px';
+        errorMsg.style.fontStyle = 'italic';
+        errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + message;
+        el.parentNode.appendChild(errorMsg);
+        if (!firstFocus) firstFocus = el;
+        isValid = false;
+    }
+
+    // Kiểm tra các trường bắt buộc (có dấu * đỏ)
+    if (!nameField) showError('nodeName', 'Vui lòng nhập Tên sự kiện!');
+    if (!startDate) showError('nodeStartDate', 'Vui lòng nhập Ngày bắt đầu!');
+    if (!endDate) showError('nodeEndDate', 'Vui lòng nhập Ngày kết thúc!');
+
+    if (!isValid) {
+        firstFocus.focus();
+        return;
+    }
+
+    // Tự động gán "Không rõ" cho các trường không bắt buộc nếu bị bỏ trống
+    if (!locations) locations = 'Không rõ';
+    if (!nguyenNhan) nguyenNhan = 'Không rõ';
+    if (!dienBien) dienBien = 'Không rõ';
+    if (!ketQua) ketQua = 'Không rõ';
+    if (!yNghia) yNghia = 'Không rõ';
+    if (!baiHoc) baiHoc = 'Không rõ';
+
+    const saveBtn = document.querySelector('.btn-save');
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+    saveBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('id', document.getElementById('nodeId').value);
+    formData.append('name', nameField);
+    formData.append('start_time', startDate);
+    formData.append('end_time', endDate);
+    formData.append('locations', locations);
+    formData.append('nguyen_nhan', nguyenNhan);
+    formData.append('dien_bien', dienBien);
+    formData.append('ket_qua', ketQua);
+    formData.append('y_nghia', yNghia);
+    formData.append('bai_hoc_kinh_nghiem', baiHoc);
+
+    const fileInput = document.getElementById('nodeImageFile');
+    if (fileInput.files.length > 0) {
+        formData.append('image', fileInput.files[0]);
+    } else {
+        const currentImage = document.getElementById('currentImage');
+        if (currentImage) formData.append('image_url', currentImage.value);
+    }
+
+    const method = document.getElementById('nodeId').value ? 'PUT' : 'POST';
+
+    fetch('/admin/api/events', {
+        method: method,
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = '/admin/eventAdmin';
+        } else {
+            alert("Lỗi: " + data.error);
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
+            saveBtn.disabled = false;
+        }
+    })
+    .catch(err => {
+        alert("Lỗi kết nối API: " + err);
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
+        saveBtn.disabled = false;
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    function formatInputDate(inputId) {
+        const inputEl = document.getElementById(inputId);
+        if (!inputEl) return;
+        
+        let val = inputEl.value.trim();
+        
+        if (val && val.includes('T')) {
+            let datePart = val.split('T')[0];
+            let parts = datePart.split('-');
+            if (parts.length === 3) {
+                inputEl.value = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+        } 
+        else if (val && val.includes('-') && !val.includes('TCN')) {
+            let parts = val.split('-');
+            if (parts.length === 3 && parts[0].length === 4) {
+                inputEl.value = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+        }
+    }
+
+    formatInputDate('nodeStartDate');
+    formatInputDate('nodeEndDate');
+    })
+    document.addEventListener('DOMContentLoaded', function() {
+        function formatInputDate(inputId) {
+            const inputEl = document.getElementById(inputId);
+            if (!inputEl) return;
+            
+            let val = inputEl.value.trim();
+            
+            if (val && val.includes('T')) {
+                let datePart = val.split('T')[0];
+                let parts = datePart.split('-');
+                if (parts.length === 3) {
+                    inputEl.value = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
+            } 
+            else if (val && val.includes('-') && !val.includes('TCN')) {
+                let parts = val.split('-');
+                if (parts.length === 3 && parts[0].length === 4) {
+                    inputEl.value = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
+            }
+        }
+
+        formatInputDate('nodeStartDate');
+        formatInputDate('nodeEndDate');
+    });
+</script>
+{% endblock %}
