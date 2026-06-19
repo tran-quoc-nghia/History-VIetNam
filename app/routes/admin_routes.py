@@ -10,114 +10,14 @@ import pandas as pd
 from flask import send_file
 from openpyxl.styles import Alignment, Font
 from werkzeug.security import check_password_hash, generate_password_hash
-from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Message
 from app import mail
 import random
+from app.routes.graph_routes import RELATIONSHIP_TRANSLATIONS
 
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 neo4j_service = Neo4jService()
-
-RELATIONSHIP_TRANSLATIONS = {
-    # Nhóm Nhân vật - Sự kiện
-    'CHI_HUY': 'Chỉ huy', 
-    'CHI_DAO': 'Chỉ đạo', 
-    'TRUC_TIEP_CHI_DAO': 'Trực tiếp chỉ đạo',
-    'THAM_GIA': 'Tham gia', 
-    'THAM_GIA_CHIEN_DAU': 'Tham gia chiến đấu',
-    'KHOI_XUONG': 'Khởi xướng',
-    'CHU_TRI': 'Chủ trì',
-    'DOI_DAU': 'Đối đầu',
-    'CHI_HUY_PHONG_THU': 'Chỉ huy phòng thủ',
-    'DOC_TUYEN_NGON': 'Đọc bản Tuyên ngôn',
-
-    # Nhóm Nhân vật - Tổ chức
-    'THUOC_VE': 'Thành viên', 
-    'LANH_DAO': 'Lãnh đạo', 
-    'SANG_LAP': 'Sáng lập',
-
-    # Nhóm Nhân vật - Quốc gia
-    'DAI_DIEN_CHO': 'Đại diện cho', 
-    'DUNG_DAU': 'Đứng đầu', 
-
-    # Nhóm Tổ chức - Sự kiện / Quốc gia / Tổ chức khác
-    'THAM_GIA_SU_KIEN': 'Tham gia sự kiện', 
-    'TO_CHUC': 'Tổ chức',
-    'LUC_LUONG_CHINH': 'Lực lượng nòng cốt',
-    'LUC_LUONG_XAM_LUOC': 'Lực lượng xâm lược',
-    'THUOC_QUOC_GIA': 'Thuộc quốc gia',
-    'TRUC_THUOC': 'Trực thuộc',
-    'HO_TRO': 'Hỗ trợ', 
-    'HOAT_DONG_TAI': 'Hoạt động tại',
-    'TIEN_THAN_CUA': 'Tiền thân của',
-
-    # Nhóm Hiệp định - Các thực thể
-    'KY_KET': 'Ký kết', 
-    'DAM_PHAN': 'Đàm phán', 
-    'THAM_GIA_KY': 'Tham gia ký kết', 
-
-    # Nhóm Sự kiện - Sự kiện / Quốc gia
-    'KET_THUC_SU_KIEN': 'Kết thúc sự kiện',
-    'TIEN_DE_CHO': 'Tiền đề cho',
-    'BUOC_NGOAT_DAN_DEN': 'Bước ngoặt dẫn đến',
-    'KET_QUA_CUA': 'Kết quả của',
-    'KHAI_SINH_RA': 'Khai sinh ra',
-    'BAO_VE_DOC_LAP': 'Bảo vệ độc lập',
-    'CHU_DONG_TIEN_CONG': 'Chủ động tiến công',
-    'QUYET_CHIEN_LUOC': 'Quyết chiến chiến lược',
-    'XAM_LUOC': 'Xâm lược',
-
-    # Nhóm gắn kết với Thời Kỳ (Period)
-    'THUOC_THOI_KY': 'Thuộc thời kỳ', 
-    'MO_DAU_GIAI_DOAN': 'Mở đầu giai đoạn',
-    'KET_THUC_GIAI_DOAN': 'Kết thúc giai đoạn',
-    'CAN_THIEP_VAO': 'Can thiệp vào',
-    'TON_TAI_TRONG': 'Tồn tại trong',
-    'CAN_THIEP_TRONG': 'Can thiệp trong',
-    'DO_HO_TRONG': 'Đô hộ trong',
-    'XAM_LUOC_TRONG': 'Xâm lược trong',
-    'HO_TRO_TRONG': 'Hỗ trợ trong',
-
-    # Nhóm Nhân vật - Nhân vật 
-    'LANH_DAO_CAP_TREN': 'Lãnh đạo / Cấp trên',
-    'LANH_DAO_CAP_DUOI': 'Cấp dưới',
-    'LANH_DAO_CAP_TREN_THAY_TRO': 'Thầy trò',
-    'THAM_MUU_TRUONG_DUOI_QUYEN': 'Tham mưu trưởng',
-    'CHI_HUY_CHIEN_SI': 'Chiến sĩ',
-    'DONG_CHI': 'Đồng chí',
-    'LANH_DAO_DONG_CHI': 'Lãnh đạo / Đồng chí',
-    'DONG_CHI_COT_CAN': 'Đồng chí cốt cán',
-    'DONG_CHI_CHI_HUY': 'Đồng chí / Chỉ huy',
-    'DONG_CHI_CAP_DUOI': 'Đồng chí cấp dưới',
-    'HOC_TRO_CONG_SU': 'Cộng sự / Học trò',
-    'HOC_TRO_CU': 'Học trò cũ',
-    'LANH_DAO_DONG_MINH': 'Đồng minh',
-    'TIEN_BOI_CACH_MANG': 'Tiền bối cách mạng',
-    'KE_NHIEM': 'Kế nhiệm',
-    'CHUYEN_GIAO_QUYEN_LUC': 'Chuyển giao quyền lực',
-    'PHO_TONG_THONG': 'Phó tổng thống',
-    'DOI_DAU_BAT_SONG': 'Bắt sống',
-    'DOI_LAP': 'Đối lập',
-    'DOI_THU_CHINH_TRI': 'Đối thủ chính trị',
-    'DOI_THU_DAM_PHAN': 'Đối thủ đàm phán',
-    'LAT_DO': 'Lật đổ',
-    'BI_LAT_DO': 'Bị lật đổ',
-    'DONG_MINH_LAT_DO': 'Đồng minh lật đổ',
-    'CHONG_DOI_CAP_TREN': 'Chống đối cấp trên',
-    'LANH_DAO_BI_CHONG_DOI': 'Bị chống đối',
-    'PHE_TRUAT': 'Phế truất',
-    'BI_PHE_TRUAT': 'Bị phế truất',
-
-    # NHÓM SỰ KIỆN - SỰ KIỆN 
-    'TIEN_DE_CHO': 'Tiền đề cho',
-    'BUOC_NGOAT_DAN_DEN': 'Bước ngoặt dẫn đến',
-    'KET_QUA_CUA': 'Kết quả của',
-    'NAM_TRONG': 'Nằm trong',
-    'DIEN_BIEN_CUA': 'Diễn biến của',
-    'KET_THUC_SU_KIEN': 'Kết thúc sự kiện',
-    'KHOI_XUONG': 'Khởi xướng',
-}
 
 @admin_bp.context_processor
 def inject_label_mapping():
@@ -170,7 +70,7 @@ def login():
                 session['logged_in'] = True
                 session['admin_name'] = result['name']
                 session['admin_email'] = email
-                return redirect(url_for('admin.person_admin_dashboard'))
+                return redirect(url_for('admin.admin_index'))
                 
         return render_template('admin/dangnhap.html', error="Email hoặc mật khẩu không đúng!")
     return render_template('admin/dangnhap.html')
@@ -246,6 +146,39 @@ def forgot_password_verify():
     # Trả về giao diện chỉ có ô nhập OTP
     return render_template('admin/forgot_password_verify.html')
 
+@admin_bp.route('/forgot-password/resend', methods=['GET'])
+def resend_otp():
+    # Lấy lại email đã lưu trong session ở Bước 1
+    email = session.get('reset_password_email')
+    if not email:
+        flash('Phiên làm việc đã hết hạn, vui lòng nhập lại email!', 'error')
+        return redirect(url_for('admin.forgot_password'))
+
+    # Lấy tên Admin để chào
+    with neo4j_service.driver.session() as db_session:
+        result = db_session.run("MATCH (a:Admin {email: $email}) RETURN a.name as name", {"email": email}).single()
+        admin_name = result['name'] if result else 'Quản trị viên'
+
+    # Hủy mã cũ, tạo mã mới và gia hạn thời gian thêm 10 phút
+    otp_code = str(random.randint(100000, 999999))
+    session['reset_password_otp'] = otp_code
+    session['reset_password_expiry'] = datetime.now().timestamp() + 600
+
+    # Gửi email mới
+    msg = Message('Mã OTP khôi phục mật khẩu (Cấp lại) - Hệ thống Quản trị', 
+                  sender=current_app.config['MAIL_USERNAME'], 
+                  recipients=[email])
+    msg.body = f"Chào {admin_name},\n\nBạn vừa yêu cầu cấp lại mã OTP do chưa nhận được hoặc mã cũ đã hết hạn.\n\nMã OTP xác nhận MỚI của bạn là: {otp_code}\n\nMã này có hiệu lực trong vòng 10 phút. Vui lòng tuyệt đối không chia sẻ mã này cho bất kỳ ai khác."
+    
+    try:
+        mail.send(msg)
+        flash('Mã OTP mới đã được gửi thành công vào hòm thư của bạn!', 'info')
+    except Exception as e:
+        flash(f'Lỗi gửi mail: Không thể kết nối dịch vụ SMTP. Chi tiết: {str(e)}', 'error')
+
+    # Quay lại bước 4 của chuỗi sự kiện chính (Trang nhập OTP)
+    return redirect(url_for('admin.forgot_password_verify'))
+
 
 # BƯỚC 3: Trang nhập mật khẩu mới và lưu vào cơ sở dữ liệu
 @admin_bp.route('/forgot-password/reset', methods=['GET', 'POST'])
@@ -257,6 +190,11 @@ def reset_password_page():
 
     if request.method == 'POST':
         new_password = request.form.get('new_password')
+
+        if new_password and len(new_password) < 6:
+            flash('Mật khẩu mới phải có ít nhất 6 ký tự!', 'error')
+            return redirect(url_for('admin.profile'))
+
         confirm_password = request.form.get('confirm_password')
         target_email = session.get('reset_password_email')
 
@@ -389,6 +327,37 @@ def verify_profile_otp():
             
     return render_template('admin/verify_otp.html')
 
+@admin_bp.route('/profile/resend-otp', methods=['GET'])
+def resend_profile_otp():
+    if not session.get('logged_in'): return redirect(url_for('admin.login'))
+    
+    current_email = session.get('admin_email')
+    changes = session.get('pending_profile_changes')
+    
+    if not current_email or not changes:
+        flash('Phiên làm việc không tồn tại hoặc đã hết hạn!', 'error')
+        return redirect(url_for('admin.profile'))
+
+    # Tạo mã mới
+    otp_code = str(random.randint(100000, 999999))
+    session['profile_otp'] = otp_code
+    session['otp_expiry'] = datetime.now().timestamp() + 600
+
+    msg = Message('Mã OTP xác nhận (Cấp lại)',
+                  sender=current_app.config['MAIL_USERNAME'],
+                  recipients=[current_email])
+                  
+    msg.body = f"Chào bạn,\n\nMã OTP xác nhận MỚI của bạn là: {otp_code}\n\nMã này có hiệu lực trong 10 phút."
+    
+    try:
+        mail_ext = current_app.extensions.get('mail')
+        mail_ext.send(msg)
+        flash('Mã OTP mới đã được gửi thành công!', 'info')
+    except Exception as e:
+        flash('Lỗi không thể gửi email!', 'error')
+        
+    return redirect(url_for('admin.verify_profile_otp'))
+
 # ==================== ĐIỀU HƯỚNG MẶC ĐỊNH ====================
 @admin_bp.route('/')
 def admin_index():
@@ -474,6 +443,17 @@ def parse_year(year_str):
         return int(num) if num else None
     except Exception:
         return None
+    
+def save_uploaded_image(image_file, folder_name):
+    """Lưu ảnh và trả về tên file, nếu không hợp lệ trả về None"""
+    if image_file and allowed_file(image_file.filename):
+        filename = secure_filename(image_file.filename)
+        filename = f"{uuid.uuid4().hex[:8]}_{filename}"
+        save_path = os.path.join(current_app.root_path, 'static', 'images', folder_name)
+        os.makedirs(save_path, exist_ok=True)
+        image_file.save(os.path.join(save_path, filename))
+        return filename
+    return None
 
 # ==========================================================
 # QUẢN LÝ NHÂN VẬT (personAdmin)
@@ -527,16 +507,16 @@ def manage_persons():
             elif request.method in ['POST', 'PUT']:
                 data = request.form.to_dict() 
                 target_id = data.get('id', '')
-                image_file = request.files.get('image')
-                image_name = data.get('image_url')
 
-                if image_file and allowed_file(image_file.filename):
-                    filename = secure_filename(image_file.filename)
-                    filename = f"{uuid.uuid4().hex[:8]}_{filename}"
-                    save_path = os.path.join(current_app.root_path, 'static/images/persons')
-                    os.makedirs(save_path, exist_ok=True)
-                    image_file.save(os.path.join(save_path, filename))
-                    image_name = filename
+                image_file = request.files.get('image')
+                new_image_name = save_uploaded_image(image_file, 'persons')
+                image_name = new_image_name if new_image_name else data.get('image_url')
+
+                birth_year = parse_year(data.get('ngay_sinh'))
+                death_year = parse_year(data.get('ngay_mat'))
+
+                if birth_year is not None and death_year is not None and death_year < birth_year:
+                    return jsonify({"success": False, "error": "Ngày mất không được trước Ngày sinh!"}), 400
 
                 # --- LOGIC TỰ ĐỘNG GẮN THỜI KỲ ---
                 person_year = parse_year(data.get('ngay_sinh'))
@@ -657,15 +637,8 @@ def manage_events():
                 locations_str = data.get('locations', '')
                 
                 image_file = request.files.get('image')
-                image_name = data.get('image_url')
-
-                if image_file and allowed_file(image_file.filename):
-                    filename = secure_filename(image_file.filename)
-                    filename = f"{uuid.uuid4().hex[:8]}_{filename}"
-                    save_path = os.path.join(current_app.root_path, 'static', 'images', 'events')
-                    os.makedirs(save_path, exist_ok=True)
-                    image_file.save(os.path.join(save_path, filename))
-                    image_name = filename
+                new_image_name = save_uploaded_image(image_file, 'persons')
+                image_name = new_image_name if new_image_name else data.get('image_url')
 
                 event_year = parse_year(data.get('start_time'))
 
@@ -1069,11 +1042,11 @@ def manage_relationships():
     raw_rel_type = data.get('rel_type', '')
     rel_type = raw_rel_type.strip().upper().replace(' ', '_')
 
-    # Bổ sung: Kiểm tra dữ liệu rỗng
+    # Kiểm tra dữ liệu rỗng
     if not source_id or not target_id or not rel_type:
         return jsonify({"success": False, "error": "Vui lòng chọn đầy đủ 2 thực thể và loại quan hệ!"})
 
-    # Bổ sung: Chặn việc tạo mối quan hệ vòng lặp (1 thực thể tự chỉ vào chính nó)
+    # Chặn việc tạo mối quan hệ vòng lặp (1 thực thể tự chỉ vào chính nó)
     if source_id == target_id:
         return jsonify({"success": False, "error": "Không thể tạo mối quan hệ tự chỉ vào chính nó!"})
 
@@ -1081,32 +1054,41 @@ def manage_relationships():
         with neo4j_service.driver.session() as db_session:
             if request.method == 'POST':
                 
-                # --- 1. KIỂM TRA TRÙNG LẶP ---
+                # KIỂM TRA SỰ TỒN TẠI CỦA THỰC THỂ 
+                check_nodes = db_session.run("""
+                    MATCH (a {id: $source_id})
+                    OPTIONAL MATCH (b {id: $target_id})
+                    RETURN count(a) as count_a, count(b) as count_b
+                """, {"source_id": source_id, "target_id": target_id}).single()
+                    
+                if not check_nodes or check_nodes['count_a'] == 0 or check_nodes['count_b'] == 0:
+                    return jsonify({"success": False, "error": "Lỗi: Thực thể nguồn hoặc đích đã bị xóa hoặc không tồn tại. Vui lòng tải lại trang!"})
+
+                # KIỂM TRA TRÙNG LẶP  
                 check_query = f"""
                     MATCH (a {{id: $source_id}})-[r:{rel_type}]->(b {{id: $target_id}})
                     RETURN r
                 """
                 existing_rel = db_session.run(check_query, {"source_id": source_id, "target_id": target_id}).single()
-                
+                    
                 if existing_rel:
-                    return jsonify({"success": False, "error": "Mối quan hệ này ĐÃ TỒN TẠI giữa 2 thực thể đã chọn!"})
-                # -----------------------------
-
-                # 2. TẠO MỐI QUAN HỆ MỚI NẾU CHƯA CÓ
-                query = f"""
+                     return jsonify({"success": False, "error": "Mối quan hệ này ĐÃ TỒN TẠI giữa 2 thực thể đã chọn!"})
+                
+                create_query = f"""
                     MATCH (a {{id: $source_id}}), (b {{id: $target_id}})
                     MERGE (a)-[r:{rel_type}]->(b)
                 """
-                db_session.run(query, {"source_id": source_id, "target_id": target_id})
-                return jsonify({"success": True, "message": "Tạo mối quan hệ thành công!"})
+                db_session.run(create_query, {"source_id": source_id, "target_id": target_id})
                 
+                return jsonify({"success": True, "message": "Thêm mối quan hệ thành công!"})
+            
             elif request.method == 'DELETE':
                 query = f"""
                     MATCH (a {{id: $source_id}})-[r:{rel_type}]->(b {{id: $target_id}})
                     DELETE r
                 """
                 db_session.run(query, {"source_id": source_id, "target_id": target_id})
-                return jsonify({"success": True, "message": "Đã xóa mối quan hệ!"})
+                return jsonify({"success": True, "message": "Xóa mối quan hệ thành công"})
                 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -1118,7 +1100,7 @@ def manage_relationships():
 def period_admin_dashboard():
     if not session.get('logged_in'): return redirect(url_for('admin.login'))
     with neo4j_service.driver.session() as db_session:
-        result = db_session.run("MATCH (g:ThoiKy) RETURN g.id as id, g.name as name, g.start_year as start_year, g.end_year as end_year ORDER BY g.start_year")
+        result = db_session.run("MATCH (g:ThoiKy) RETURN g.id as id, g.name as name, g.start_year as start_year, g.end_year as end_year ORDER BY g.end_year ASC")
         periods = [dict(r) for r in result]
     return render_template('admin/periodAdmin/list_period.html', periods=periods)
 
@@ -1159,7 +1141,7 @@ def manage_periods():
     try:
         with neo4j_service.driver.session() as db_session:
             if request.method == 'GET':
-                result = db_session.run("MATCH (g:ThoiKy) RETURN g.id as id, g.name as name ORDER BY g.start_year")
+                result = db_session.run("MATCH (g:ThoiKy) RETURN g.id as id, g.name as name, g.start_year as start_year, g.end_year as end_year ORDER BY g.end_year ASC")
                 return jsonify({"success": True, "data": [dict(r) for r in result]})
 
             elif request.method in ['POST', 'PUT']:
@@ -1170,14 +1152,28 @@ def manage_periods():
                 auto_link_events_query = """
                     MATCH (e:SuKien), (g:ThoiKy {id: $id})
                     WHERE e.start_time IS NOT NULL AND trim(toString(e.start_time)) <> ""
+                    
+                    // 1. Chuyển năm của Sự kiện thành số
                     WITH e, g, 
-                         CASE 
+                        CASE 
                             WHEN toString(e.start_time) CONTAINS 'TCN' THEN -toInteger(replace(toString(e.start_time), 'TCN', ''))
                             WHEN toString(e.start_time) CONTAINS '-' THEN toInteger(split(toString(e.start_time), '-')[0])
                             WHEN toString(e.start_time) CONTAINS '/' THEN toInteger(last(split(toString(e.start_time), '/')))
                             ELSE toInteger(right(toString(e.start_time), 4))
-                         END AS event_year
-                    WHERE event_year IS NOT NULL AND event_year >= g.start_year AND event_year <= g.end_year
+                        END AS event_year,
+                        
+                    // 2. Chuyển năm của Thời kỳ (String) thành số để so sánh
+                        CASE 
+                            WHEN toString(g.start_year) CONTAINS 'TCN' THEN -toInteger(replace(toString(g.start_year), 'TCN', ''))
+                            ELSE toInteger(g.start_year)
+                        END AS p_start_num,
+                        CASE 
+                            WHEN toString(g.end_year) CONTAINS 'TCN' THEN -toInteger(replace(toString(g.end_year), 'TCN', ''))
+                            WHEN toString(g.end_year) CONTAINS 'Nay' THEN 9999
+                            ELSE toInteger(g.end_year)
+                        END AS p_end_num
+                        
+                    WHERE event_year IS NOT NULL AND event_year >= p_start_num AND event_year <= p_end_num
                     MERGE (e)-[:THUOC_THOI_KY]->(g)
                 """
                 
@@ -1185,31 +1181,55 @@ def manage_periods():
                 auto_link_treaties_query = """
                     MATCH (t:HiepDinh), (g:ThoiKy {id: $id})
                     WHERE t.year IS NOT NULL AND trim(toString(t.year)) <> ""
+                    
                     WITH t, g, 
-                         CASE 
+                        CASE 
                             WHEN toString(t.year) CONTAINS 'TCN' THEN -toInteger(replace(toString(t.year), 'TCN', ''))
                             ELSE toInteger(t.year)
-                         END AS treaty_year
-                    WHERE treaty_year >= g.start_year AND treaty_year <= g.end_year
+                        END AS treaty_year,
+                        
+                        CASE 
+                            WHEN toString(g.start_year) CONTAINS 'TCN' THEN -toInteger(replace(toString(g.start_year), 'TCN', ''))
+                            ELSE toInteger(g.start_year)
+                        END AS p_start_num,
+                        CASE 
+                            WHEN toString(g.end_year) CONTAINS 'TCN' THEN -toInteger(replace(toString(g.end_year), 'TCN', ''))
+                            WHEN toString(g.end_year) CONTAINS 'Nay' THEN 9999
+                            ELSE toInteger(g.end_year)
+                        END AS p_end_num
+                        
+                    WHERE treaty_year >= p_start_num AND treaty_year <= p_end_num
                     MERGE (t)-[:THUOC_THOI_KY]->(g)
                 """
                 
-                # Lấy số năm từ Form của Admin (đã được định dạng TCN)
                 start_year_str = data.get('start_year', '')
                 end_year_str = data.get('end_year', '')
                 
                 start_y = parse_year(start_year_str) if start_year_str else 0
                 end_y = parse_year(end_year_str) if end_year_str else 9999
 
+                # === KIỂM TRA THỜI GIAN HỢP LỆ ===
+                if start_y is not None and end_y is not None and end_y < start_y:
+                    return jsonify({"success": False, "error": "Năm kết thúc không được nhỏ hơn Năm bắt đầu!"}), 400
+
                 if request.method == 'POST':
+                    # === KIỂM TRA TRÙNG LẶP ===
+                    check_dup = db_session.run(
+                        "MATCH (g:ThoiKy) WHERE toLower(g.name) = toLower($name) RETURN g", 
+                        {"name": data.get('name', '').strip()}
+                    ).single()
+                    
+                    if check_dup:
+                        return jsonify({"success": False, "error": "Thời kỳ này đã tồn tại trong hệ thống!"})
                     new_id = f"period_{uuid.uuid4().hex[:8]}"
+
                     query = """
                         CREATE (g:ThoiKy {
                             id: $id, name: $name, start_year: $start_year, 
                             end_year: $end_year, description: $description, y_nghia: $y_nghia
                         })
                     """
-                    db_session.run(query, {**data, "id": new_id, "start_year": start_y, "end_year": end_y})
+                    db_session.run(query, {**data, "id": new_id, "start_year": start_year_str, "end_year": end_year_str})
                     db_session.run(auto_link_events_query, {"id": new_id})
                     db_session.run(auto_link_treaties_query, {"id": new_id})
                     return jsonify({"success": True, "message": "Thêm thời kỳ thành công!"})
@@ -1222,7 +1242,7 @@ def manage_periods():
                         SET g.name = $name, g.start_year = $start_year, 
                             g.end_year = $end_year, g.description = $description, g.y_nghia = $y_nghia
                     """
-                    db_session.run(query, {**data, "id": target_id, "start_year": start_y, "end_year": end_y})
+                    db_session.run(query, {**data, "id": target_id, "start_year": start_year_str, "end_year": end_year_str})
                     db_session.run("MATCH (n)-[r:THUOC_THOI_KY]->(g:ThoiKy {id: $id}) DELETE r", {"id": target_id})
                     db_session.run(auto_link_events_query, {"id": target_id})
                     db_session.run(auto_link_treaties_query, {"id": target_id})
@@ -1234,55 +1254,6 @@ def manage_periods():
                 return jsonify({"success": True, "message": "Xóa thời kỳ thành công!"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-    
-
-# @admin_bp.route('/api/ai/extract-relation', methods=['POST'])
-# def ai_extract_relation():
-#     if not session.get('logged_in'): 
-#         return jsonify({"success": False, "error": "Chưa đăng nhập"}), 401
-    
-#     data = request.json
-#     text_input = data.get('text', '')
-    
-#     if not text_input:
-#         return jsonify({"success": False, "error": "Vui lòng nhập văn bản."})
-
-#     # Lấy danh sách quan hệ đang có
-#     with neo4j_service.driver.session() as db_session:
-#         existing_types = [r["type"] for r in db_session.run("CALL db.relationshipTypes() YIELD relationshipType as type")]
-    
-#     # Câu lệnh (Prompt) cho AI đã gộp đầy đủ các rule
-#     prompt = f"""
-#     Bạn là một chuyên gia về Lịch sử Việt Nam. Nhiệm vụ của bạn là đọc một đoạn văn bản và trích xuất MỘT mối quan hệ lịch sử chính yếu dưới dạng JSON.
-    
-#     Các loại mối quan hệ ĐANG CÓ SẴN trong hệ thống: {existing_types}
-    
-#     Quy tắc trích xuất dữ liệu:
-#     1. "source_name": Tên thực thể làm CHỦ NGỮ hoặc khởi xướng.
-#     2. "target_name": Tên thực thể bị tác động, đích đến, hoặc nơi diễn ra.
-#     3. "rel_type": Loại quan hệ. Hãy ƯU TIÊN SỬ DỤNG một trong các loại quan hệ đang có sẵn ở trên. Nếu không có cái nào phù hợp, bạn được phép TỰ TẠO MỚI (viết bằng CHỮ IN HOA, dùng DẤU GẠCH DƯỚI, không dấu tiếng Việt).
-
-#     Yêu cầu trả về DUY NHẤT JSON theo đúng 3 key này.
-    
-#     Đoạn văn bản: "{text_input}"
-#     """
-
-#     try:
-#         chat_completion = groq_client.chat.completions.create(
-                #     messages=[{"role": "user", "content": prompt}],
-                #     model="llama-3.1-8b-instant", 
-                # )
-        
-#         # Parse JSON an toàn
-#         result_data = json.loads(response.text)
-        
-#         return jsonify({
-#             "success": True, 
-#             "data": result_data
-#         })
-        
-#     except Exception as e:
-#         return jsonify({"success": False, "error": f"Lỗi AI: {str(e)}"}), 500
 
 # ==========================================================
 # QUẢN LÝ SAO LƯU & PHỤC HỒI (BACKUP / RESTORE EXCEL)

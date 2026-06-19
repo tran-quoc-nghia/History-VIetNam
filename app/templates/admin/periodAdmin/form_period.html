@@ -98,8 +98,20 @@
 
 {% block extra_js %}
 <script>
+    // Hàm xử lý năm (bao gồm cả TCN)
+    function parseYearForComparison(dateStr) {
+        if (!dateStr) return null;
+        let s = dateStr.toString().toUpperCase().trim();
+        if (s.includes('TCN')) {
+            const num = s.replace(/[^0-9]/g, '');
+            return num ? -parseInt(num) : null;
+        }
+        const num = s.replace(/[^0-9]/g, '');
+        return num ? parseInt(num) : null;
+    }
+
     function saveData() {
-        // Xóa lỗi cũ
+        // 1. Dọn dẹp lỗi cũ
         document.querySelectorAll('.error-msg').forEach(el => el.remove());
         const fields = ['nodeName', 'nodeStartYear', 'nodeEndYear', 'nodeDescription', 'nodeSignificance'];
         fields.forEach(id => {
@@ -118,6 +130,7 @@
 
         function showError(id, message) {
             const el = document.getElementById(id);
+            if (!el) return;
             el.style.borderColor = '#e74c3c';
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error-msg';
@@ -131,21 +144,32 @@
             isValid = false;
         }
 
+        // Bắt lỗi trống dữ liệu
         if (!nameField) showError('nodeName', 'Vui lòng nhập Tên thời kỳ!');
         if (!startYear) showError('nodeStartYear', 'Vui lòng nhập Năm bắt đầu!');
         if (!endYear) showError('nodeEndYear', 'Vui lòng nhập Năm kết thúc!');
 
+        // 7.b.1 Bắt lỗi logic thời gian
+        if (startYear && endYear) {
+            const startY = parseYearForComparison(startYear);
+            const endY = parseYearForComparison(endYear);
+            if (startY !== null && endY !== null && endY < startY) {
+                showError('nodeEndYear', 'Năm kết thúc không được nhỏ hơn Năm bắt đầu!');
+            }
+        }
+
         if (!isValid) {
+            firstFocus.scrollIntoView({ behavior: 'smooth', block: 'center' });
             firstFocus.focus();
             return;
         }
 
-        // Gán "Không rõ" cho các trường không bắt buộc nếu trống
+        // Gán "Không rõ"
         if (!descField) descField = 'Không rõ';
         if (!signField) signField = 'Không rõ';
 
         const saveBtn = document.querySelector('.btn-save');
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý tự động liên kết...';
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
         saveBtn.disabled = true;
 
         const formData = new FormData();
@@ -166,10 +190,19 @@
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                alert(data.message || 'Lưu thành công!');
+                // 8. Thông báo thành công
+                alert(data.message);
                 window.location.href = '/admin/periodAdmin';
             } else {
-                alert("Lỗi: " + data.error);
+                if (data.error && data.error.includes("đã tồn tại")) {
+                    showError('nodeName', 'Thời kỳ này đã tồn tại trong hệ thống!');
+                    firstFocus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else if (data.error.includes("nhỏ hơn Năm bắt đầu")) {
+                    showError('nodeEndYear', data.error);
+                    firstFocus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    alert("Lỗi: " + data.error);
+                }
                 saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
                 saveBtn.disabled = false;
             }

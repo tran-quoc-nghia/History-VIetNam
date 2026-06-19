@@ -37,14 +37,16 @@ class CypherQueries:
             - "general_qa": Hỏi các chi tiết cụ thể nằm trong mô tả, diễn biến, cuộc đời, kết quả, ý nghĩa (Key: "keyword")
             - "person_relations": Hỏi về mối quan hệ của nhân vật này với các nhân vật khác (ai là kẻ thù, đồng đội, vợ/chồng, cha con) (Key: "person_name")
             - "event_relations": Hỏi sự kiện này liên quan/dẫn đến/là tiền đề/là kết quả của sự kiện nào khác (Key: "event_name")
-            - "search": Nếu không thuộc các loại trên (Key: "keyword")
             
             Quy tắc bắt buộc:
-            1. Tự động sửa lỗi chính tả, viết hoa đúng chuẩn tên riêng.
-            2. Trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng.
+            1. Tự động sửa lỗi chính tả, TỰ ĐỘNG THÊM DẤU tiếng Việt nếu người dùng viết không dấu (VD: "vo nguyen giap" -> "Võ Nguyên Giáp").
+            2. TUYỆT ĐỐI GIỮ NGUYÊN các con số hoặc ký hiệu ở cuối tên (VD: "Võ Nguyên Giáp 1" thì bắt buộc phải trả về "Võ Nguyên Giáp 1", không được xóa số 1).
+            3. Trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng.
             
             Ví dụ:
             - Hỏi 'võ thị sáu bị bắt khi nào': {{"type": "person_info", "person_name": "Võ Thị Sáu"}}
+            - Hỏi 'chức vụ của võ nguyên giáp 1 là gì': {{"type": "person_info", "person_name": "Võ Nguyên Giáp 1"}}
+            - Hỏi 'quang trung 2 tham gia trận nào': {{"type": "person_battles", "person_name": "Quang Trung 2"}}
             - Hỏi 'đại tướng võ nguyên giáp có mấy người con': {{"type": "person_info", "person_name": "Võ Nguyên Giáp"}}
             - Hỏi 'ai tham gia chiến dịch điện biên phủ': {{"type": "battle_participants", "battle_name": "Điện Biên Phủ"}}
             - Hỏi 'thời kỳ phong kiến độc lập có ý nghĩa gì': {{"type": "period_info", "period_name": "Thời kỳ Phong kiến độc lập"}}
@@ -90,8 +92,12 @@ class CypherQueries:
     def get_person_battles(person_name):
         return """
             MATCH (p:NhanVat)
-            WHERE toLower(p.name) CONTAINS toLower($name) 
-               OR toLower(p.ten_day_du) CONTAINS toLower($name)
+            WHERE toLower(p.name) = toLower($name) OR toLower(p.ten_day_du) = toLower($name)
+               OR toLower(p.name) CONTAINS toLower($name) OR toLower(p.ten_day_du) CONTAINS toLower($name)
+            WITH p
+            ORDER BY CASE WHEN toLower(p.name) = toLower($name) OR toLower(p.ten_day_du) = toLower($name) THEN 0 ELSE 1 END ASC
+            LIMIT 1
+            
             MATCH (p)-[r]-(e:SuKien)
             RETURN 
                 p.name as person_name,
@@ -104,8 +110,14 @@ class CypherQueries:
                 CASE type(r)
                     WHEN 'CHI_HUY' THEN 'Chỉ huy'
                     WHEN 'CHI_DAO' THEN 'Chỉ đạo'
+                    WHEN 'TRUC_TIEP_CHI_DAO' THEN 'Trực tiếp chỉ đạo'
                     WHEN 'THAM_GIA' THEN 'Tham gia'
+                    WHEN 'THAM_GIA_CHIEN_DAU' THEN 'Tham gia chiến đấu'
+                    WHEN 'CHI_HUY_PHONG_THU' THEN 'Chỉ huy phòng thủ'
                     WHEN 'KHOI_XUONG' THEN 'Khởi xướng'
+                    WHEN 'CHU_TRI' THEN 'Chủ trì'
+                    WHEN 'DOC_TUYEN_NGON' THEN 'Đọc bản Tuyên ngôn'
+                    WHEN 'DOI_DAU' THEN 'Đối đầu'
                     ELSE type(r)
                 END as role
             ORDER BY e.start_time
@@ -115,7 +127,11 @@ class CypherQueries:
     def get_battle_participants(battle_name):
         return """
             MATCH (e:SuKien)
-            WHERE toLower(e.name) CONTAINS toLower($name)
+            WHERE toLower(e.name) = toLower($name) OR toLower(e.name) CONTAINS toLower($name)
+            WITH e
+            ORDER BY CASE WHEN toLower(e.name) = toLower($name) THEN 0 ELSE 1 END ASC
+            LIMIT 1
+            
             OPTIONAL MATCH (p:NhanVat)-[r]-(e)
             RETURN 
                 e.name as battle_name,
@@ -127,39 +143,50 @@ class CypherQueries:
                 CASE type(r)
                     WHEN 'CHI_HUY' THEN 'Chỉ huy'
                     WHEN 'CHI_DAO' THEN 'Chỉ đạo'
+                    WHEN 'TRUC_TIEP_CHI_DAO' THEN 'Trực tiếp chỉ đạo'
                     WHEN 'THAM_GIA' THEN 'Tham gia'
+                    WHEN 'THAM_GIA_CHIEN_DAU' THEN 'Tham gia chiến đấu'
+                    WHEN 'CHI_HUY_PHONG_THU' THEN 'Chỉ huy phòng thủ'
                     WHEN 'KHOI_XUONG' THEN 'Khởi xướng'
+                    WHEN 'CHU_TRI' THEN 'Chủ trì'
+                    WHEN 'DOC_TUYEN_NGON' THEN 'Đọc bản Tuyên ngôn'
+                    WHEN 'DOI_DAU' THEN 'Đối đầu'
                     ELSE type(r)
                 END as role
             ORDER BY 
-                CASE WHEN type(r) = 'CHI_HUY' THEN 1 
-                     WHEN type(r) = 'CHI_DAO' THEN 2 
-                     WHEN type(r) = 'THAM_GIA' THEN 3
-                     WHEN type(r) = 'KHOI_XUONG' THEN 4
+                CASE WHEN type(r) IN ['CHI_HUY', 'CHI_DAO', 'TRUC_TIEP_CHI_DAO', 'CHU_TRI'] THEN 1 
+                     WHEN type(r) IN ['KHOI_XUONG', 'DOC_TUYEN_NGON'] THEN 2 
+                     WHEN type(r) IN ['THAM_GIA', 'THAM_GIA_CHIEN_DAU', 'CHI_HUY_PHONG_THU'] THEN 3
+                     WHEN type(r) = 'DOI_DAU' THEN 4
                      ELSE 5 
                 END
         """
 
     @staticmethod
     def get_event_location(event_name):
-        """Lấy thông tin địa điểm của sự kiện"""
         return """
             MATCH (e:SuKien)
-            WHERE toLower(e.name) CONTAINS toLower($name)
+            WHERE toLower(e.name) = toLower($name) OR toLower(e.name) CONTAINS toLower($name)
+            WITH e
+            ORDER BY CASE WHEN toLower(e.name) = toLower($name) THEN 0 ELSE 1 END ASC
+            LIMIT 1
+            
             RETURN 
                 e.name as event_name,
                 e.start_time as start_time,
                 COALESCE(e.locations, 'Chưa rõ địa điểm') as locations,
                 e.description as description
-            LIMIT 1
         """
 
     @staticmethod
     def get_event_cause_result(event_name):
-        """Lấy diễn biến, nguyên nhân, kết quả, ý nghĩa của sự kiện"""
         return """
             MATCH (e:SuKien)
-            WHERE toLower(e.name) CONTAINS toLower($name)
+            WHERE toLower(e.name) = toLower($name) OR toLower(e.name) CONTAINS toLower($name)
+            WITH e
+            ORDER BY CASE WHEN toLower(e.name) = toLower($name) THEN 0 ELSE 1 END ASC
+            LIMIT 1
+            
             RETURN 
                 e.name as event_name,
                 COALESCE(e.dien_bien, 'Đang cập nhật') as dien_bien,
@@ -167,15 +194,17 @@ class CypherQueries:
                 COALESCE(e.ket_qua, 'Đang cập nhật') as ket_qua,
                 COALESCE(e.y_nghia, 'Đang cập nhật') as y_nghia,
                 COALESCE(e.bai_hoc_kinh_nghiem, 'Đang cập nhật') as bai_hoc_kinh_nghiem
-            LIMIT 1
         """
 
     @staticmethod
     def get_treaty_participants(treaty_name):
-        """Tìm các bên tham gia đàm phán, ký kết hiệp định"""
         return """
             MATCH (t:HiepDinh)
-            WHERE toLower(t.name) CONTAINS toLower($name)
+            WHERE toLower(t.name) = toLower($name) OR toLower(t.name) CONTAINS toLower($name)
+            WITH t
+            ORDER BY CASE WHEN toLower(t.name) = toLower($name) THEN 0 ELSE 1 END ASC
+            LIMIT 1
+            
             OPTIONAL MATCH (p:NhanVat)-[:DAM_PHAN|THAM_GIA_KY]-(t)
             OPTIONAL MATCH (c:QuocGia)-[:THAM_GIA_KY]-(t)
             RETURN 
@@ -183,15 +212,17 @@ class CypherQueries:
                 t.signing_date as signing_date,
                 collect(DISTINCT p.name) as negotiators,
                 collect(DISTINCT c.name) as countries
-            LIMIT 1
         """
 
     @staticmethod
     def get_period_events(period_name):
-        """Lấy các sự kiện thuộc một thời kỳ lịch sử"""
         return """
             MATCH (tk:ThoiKy)
-            WHERE toLower(tk.name) CONTAINS toLower($name)
+            WHERE toLower(tk.name) = toLower($name) OR toLower(tk.name) CONTAINS toLower($name)
+            WITH tk
+            ORDER BY CASE WHEN toLower(tk.name) = toLower($name) THEN 0 ELSE 1 END ASC
+            LIMIT 1
+            
             MATCH (e:SuKien)-[r:THUOC_THOI_KY]->(tk)
             RETURN 
                 tk.name as period_name,
@@ -203,45 +234,6 @@ class CypherQueries:
                     ELSE type(r)
                 END as relation
             ORDER BY e.start_time
-        """
-        
-    @staticmethod
-    def get_person_related_entities(person_name):
-        """Lấy tất cả các thực thể liên quan đến một nhân vật (sự kiện, tổ chức, quốc gia, thời kỳ)"""
-        return """
-            MATCH (p:NhanVat)
-            WHERE toLower(p.name) CONTAINS toLower($name) 
-               OR toLower(p.ten_day_du) CONTAINS toLower($name)
-            OPTIONAL MATCH (p)-[r]-(e:SuKien)
-            OPTIONAL MATCH (p)-[r2]-(o:ToChuc)
-            OPTIONAL MATCH (p)-[r3]-(c:QuocGia)
-            OPTIONAL MATCH (p)-[r4]-(tk:ThoiKy)
-            RETURN 
-                p.name as person_name,
-                collect(DISTINCT {type: 'SuKien', name: e.name, relation: type(r)}) +
-                collect(DISTINCT {type: 'ToChuc', name: o.name, relation: type(r2)}) +
-                collect(DISTINCT {type: 'QuocGia', name: c.name, relation: type(r3)}) +
-                collect(DISTINCT {type: 'ThoiKy', name: tk.name, relation: type(r4)}) as related_entities
-            LIMIT 1
-        """
-    
-    @staticmethod
-    def get_event_related_entities(event_name):
-        """Lấy tất cả các thực thể liên quan đến một sự kiện"""
-        return """
-            MATCH (e:SuKien)
-            WHERE toLower(e.name) CONTAINS toLower($name)
-            OPTIONAL MATCH (e)-[r]-(p:NhanVat)
-            OPTIONAL MATCH (e)-[r2]-(o:ToChuc)
-            OPTIONAL MATCH (e)-[r3]-(c:QuocGia)
-            OPTIONAL MATCH (e)-[r4:THUOC_THOI_KY]->(tk:ThoiKy)
-            RETURN 
-                e.name as event_name,
-                collect(DISTINCT {type: 'NhanVat', name: p.name, relation: type(r)}) +
-                collect(DISTINCT {type: 'ToChuc', name: o.name, relation: type(r2)}) +
-                collect(DISTINCT {type: 'QuocGia', name: c.name, relation: type(r3)}) +
-                collect(DISTINCT {type: 'ThoiKy', name: tk.name, relation: type(r4)}) as related_entities
-            LIMIT 1
         """
     
     # ==================== TÌM KIẾM TỪ KHÓA MẶC ĐỊNH ====================
@@ -270,8 +262,12 @@ class CypherQueries:
     def get_organization_members(org_name):
         return """
             MATCH (o:ToChuc)
-            WHERE toLower(o.name) CONTAINS toLower($name)
-            OPTIONAL MATCH (p:NhanVat)-[r:THUOC_VE|LANH_DAO]-(o)
+            WHERE toLower(o.name) = toLower($name) OR toLower(o.name) CONTAINS toLower($name)
+            WITH o
+            ORDER BY CASE WHEN toLower(o.name) = toLower($name) THEN 0 ELSE 1 END ASC
+            LIMIT 1
+            
+            OPTIONAL MATCH (p:NhanVat)-[r:THUOC_VE|LANH_DAO|SANG_LAP]-(o)
             RETURN 
                 o.name as org_name,
                 p.name as person_name,
@@ -281,6 +277,7 @@ class CypherQueries:
                 CASE type(r)
                     WHEN 'LANH_DAO' THEN 'Lãnh đạo'
                     WHEN 'THUOC_VE' THEN 'Thành viên'
+                    WHEN 'SANG_LAP' THEN 'Sáng lập'
                     ELSE type(r)
                 END as role_name
         """
@@ -289,8 +286,12 @@ class CypherQueries:
     def get_person_organizations(person_name):
         return """
             MATCH (p:NhanVat)
-            WHERE toLower(p.name) CONTAINS toLower($name) 
-               OR toLower(p.ten_day_du) CONTAINS toLower($name)
+            WHERE toLower(p.name) = toLower($name) OR toLower(p.ten_day_du) = toLower($name)
+               OR toLower(p.name) CONTAINS toLower($name) OR toLower(p.ten_day_du) CONTAINS toLower($name)
+            WITH p
+            ORDER BY CASE WHEN toLower(p.name) = toLower($name) OR toLower(p.ten_day_du) = toLower($name) THEN 0 ELSE 1 END ASC
+            LIMIT 1
+            
             MATCH (p)-[r]-(o:ToChuc)
             RETURN 
                 p.name as person_name,
@@ -307,25 +308,29 @@ class CypherQueries:
         """
     
     # ==================== TRUY VẤN DÀNH CHO GIAO DIỆN VIEW/DETAIL ====================
-    # (Đã tối ưu hóa DISTINCT để tránh lặp dữ liệu)
     
     @staticmethod
     def get_entity_detail(label, property_name, name):
-        """Dùng cho các truy vấn đơn giản: Lấy thông tin 1 node"""
+        """Lấy thông tin 1 node: Ưu tiên khớp chính xác 100%, nếu không có mới tìm gần đúng"""
         return f"""
             MATCH (n:{label})
-            WHERE toLower(n.{property_name}) CONTAINS toLower($name)
+            WHERE toLower(n.{property_name}) = toLower($name) 
+               OR toLower(n.{property_name}) CONTAINS toLower($name)
             RETURN n
+            ORDER BY 
+                CASE 
+                    WHEN toLower(n.{property_name}) = toLower($name) THEN 0 
+                    ELSE 1 
+                END ASC
             LIMIT 1
         """
 
     @staticmethod
-    def get_persons_by_period():
+    def get_all_persons():
         return """
             MATCH (tk:ThoiKy)
             OPTIONAL MATCH (p:NhanVat)-[:THUOC_THOI_KY]->(tk)
-            OPTIONAL MATCH (p)-[:DAI_DIEN_CHO|DUNG_DAU|THUOC_QUOC_GIA]-(c:QuocGia)
-            WITH tk, p, collect(DISTINCT c.name) as side
+            WITH tk, p
             ORDER BY p.name
             RETURN 
                 tk.id as period_id,
@@ -335,35 +340,19 @@ class CypherQueries:
                 collect(CASE WHEN p IS NOT NULL THEN {
                     id: p.id,
                     name: p.name,
+                    ten_day_du: p.ten_day_du,
                     ngay_sinh: p.ngay_sinh,
+                    noi_sinh: p.noi_sinh,
                     ngay_mat: p.ngay_mat,
+                    noi_mat: p.noi_mat,
+                    quoc_tich: p.quoc_tich,
                     vai_tro: p.vai_tro,
-                    image_url: p.image_url,
-                    side: side
+                    chuc_vu: p.chuc_vu,
+                    nhiem_ky: p.nhiem_ky,
+                    cuoc_doi: p.cuoc_doi,
+                    image_url: p.image_url
                 } END) as persons
             ORDER BY tk.id
-        """
-
-    @staticmethod
-    def get_all_persons():
-        return """
-            MATCH (p:NhanVat)
-            OPTIONAL MATCH (p)-[:DAI_DIEN_CHO|DUNG_DAU]-(c:QuocGia)
-            RETURN 
-                p.name as name,
-                p.ten_day_du as ten_day_du,
-                p.ngay_sinh as ngay_sinh,
-                p.noi_sinh as noi_sinh,
-                p.ngay_mat as ngay_mat,
-                p.noi_mat as noi_mat,
-                p.quoc_tich as quoc_tich,
-                p.vai_tro as vai_tro,
-                p.chuc_vu as chuc_vu,
-                p.nhiem_ky as nhiem_ky,
-                p.cuoc_doi as cuoc_doi,
-                p.image_url as image_url,
-                collect(DISTINCT c.name) as side
-            ORDER BY p.name
         """
     
     @staticmethod
@@ -404,91 +393,159 @@ class CypherQueries:
                 } END) as events
             ORDER BY tk.id
         """
-    
+        
     @staticmethod
-    def get_all_organizations():
-        return """
-            MATCH (o:ToChuc)
-            RETURN o.id as id, o.name as name, o.type as type, o.founded_year as founded_year,
-                    o.headquarters as headquarters, o.description as description
-            ORDER BY o.name
-        """
-    
-    @staticmethod
-    def get_all_treaties():
-        return """
-            MATCH (t:HiepDinh)
-            RETURN t.id as id, t.name as name, t.year as year, t.signing_date as signing_date,
-                   t.location as location, t.description as description, t.noi_dung_chinh as noi_dung_chinh,
-                   t.y_nghia as y_nghia, t.bai_hoc_kinh_nghiem as bai_hoc_kinh_nghiem
-            ORDER BY t.year DESC
-        """
-    
-    @staticmethod
-    def get_all_countries():
-        return """
-            MATCH (c:QuocGia)
-            RETURN c.id as id, c.name as name, c.capital as capital, c.region as region, c.description as description
-            ORDER BY c.name
-        """
-    
-    @staticmethod
-    def get_all_periods():
-        return """
-            MATCH (tk:ThoiKy)
-            RETURN tk.id as id, tk.name as name, tk.start_year as start_year, tk.end_year as end_year,
-                   tk.description as description, tk.y_nghia as y_nghia
-            ORDER BY tk.id
-        """
-    
-    @staticmethod
-    def get_person_detail_with_relations(person_name):
+    def get_person_detail_with_relations():
         return """
             MATCH (p:NhanVat)
-            WHERE toLower(p.name) = toLower($name) OR toLower(p.ten_day_du) = toLower($name)
-            OPTIONAL MATCH (p)-[:DAI_DIEN_CHO|DUNG_DAU|THUOC_QUOC_GIA]-(c:QuocGia)
-            OPTIONAL MATCH (p)-[:THUOC_VE|LANH_DAO|THAM_GIA|SANG_LAP]-(o:ToChuc)
-            OPTIONAL MATCH (p)-[r:CHI_HUY|CHI_DAO|THAM_GIA|KHOI_XUONG|DOC_TUYEN_NGON]-(e:SuKien)
-            RETURN
-                p {.name, .ten_day_du, .ngay_sinh, .noi_sinh, .ngay_mat, .noi_mat, 
+            WHERE toLower(p.name) = toLower($name)
+            RETURN 
+                p {.id, .name, .ten_day_du, .ngay_sinh, .noi_sinh, .ngay_mat, .noi_mat, 
                    .quoc_tich, .vai_tro, .chuc_vu, .nhiem_ky, .cuoc_doi, .image_url} as person,
-                collect(DISTINCT c.name) as countries,
-                collect(DISTINCT o.name) as organizations,
-                collect(DISTINCT {
-                    event: e.name,
-                    relation: type(r),
-                    role: CASE type(r)
+                [(p)-[re]-(e:SuKien) | {
+                    name: e.name, start_time: e.start_time, end_time: e.end_time, ket_qua: e.ket_qua, relation: type(re),
+                    role: CASE type(re)
                         WHEN 'CHI_HUY' THEN 'Chỉ huy'
                         WHEN 'CHI_DAO' THEN 'Chỉ đạo'
                         WHEN 'THAM_GIA' THEN 'Tham gia'
                         WHEN 'KHOI_XUONG' THEN 'Khởi xướng'
-                        WHEN 'DOC_TUYEN_NGON' THEN 'Đọc bản Tuyên ngôn'
-                        ELSE type(r) 
-                    END,
-                    time: e.start_time
-                }) as events
+                        ELSE type(re) END
+                }] as events,
+                [(p)-[ro]-(o:ToChuc) | {
+                    name: o.name, type: o.type, founded_year: o.founded_year,
+                    role: CASE type(ro)
+                        WHEN 'THUOC_VE' THEN 'Thành viên'
+                        WHEN 'LANH_DAO' THEN 'Lãnh đạo'
+                        WHEN 'THAM_GIA' THEN 'Tham gia'
+                        WHEN 'SANG_LAP' THEN 'Sáng lập'
+                        ELSE type(ro) END
+                }] as organizations,
+                [(p)-[rc]-(c:QuocGia) | {
+                    name: c.name, relation: type(rc),
+                    role: CASE type(rc)
+                        WHEN 'DAI_DIEN_CHO' THEN 'Đại diện cho'
+                        WHEN 'DUNG_DAU' THEN 'Lãnh đạo'
+                        WHEN 'THUOC_QUOC_GIA' THEN 'Thuộc quốc gia'
+                        ELSE type(rc) END
+                }] as countries
+            LIMIT 1
+        """
+
+    @staticmethod
+    def get_event_detail_with_relations():
+        return """
+            MATCH (e:SuKien)
+            WHERE toLower(e.name) = toLower($name)
+            RETURN 
+                e {.id, .name, .start_time, .end_time, .dien_bien, .nguyen_nhan, 
+                   .ket_qua, .y_nghia, .bai_hoc_kinh_nghiem, .image_url, .locations} as event,
+                [(e)-[rp]-(p:NhanVat) | {
+                    name: p.name, vai_tro: p.vai_tro, relation: type(rp),
+                    role: CASE type(rp)
+                        WHEN 'CHI_HUY' THEN 'Chỉ huy'
+                        WHEN 'CHI_DAO' THEN 'Chỉ đạo'
+                        WHEN 'THAM_GIA' THEN 'Tham gia'
+                        WHEN 'KHOI_XUONG' THEN 'Khởi xướng'
+                        ELSE type(rp) END
+                }] as persons,
+                [(e)-[ro]-(o:ToChuc) | {
+                    name: o.name, type: o.type, founded_year: o.founded_year,
+                    role: CASE type(ro)
+                        WHEN 'THAM_GIA_SU_KIEN' THEN 'Tham gia'
+                        WHEN 'TO_CHUC' THEN 'Tổ chức'
+                        ELSE type(ro) END
+                }] as organizations,
+                [(e)-[rt:THUOC_THOI_KY]->(g:ThoiKy) | {
+                    name: g.name, start_year: g.start_year, end_year: g.end_year
+                }] as periods
             LIMIT 1
         """
     
     @staticmethod
-    def get_event_detail_with_relations(event_name):
+    def get_organization_detail_with_relations():
         return """
-            MATCH (e:SuKien)
-            WHERE toLower(e.name) = toLower($name)
-            OPTIONAL MATCH (p:NhanVat)-[r]-(e)
-            OPTIONAL MATCH (o:ToChuc)-[r2:THAM_GIA_SU_KIEN|TO_CHUC|KET_QUA_CUA]-(e)
+            MATCH (o:ToChuc)
+            WHERE toLower(o.name) = toLower($name)
             RETURN 
-                e {.name, .start_time, .end_time, .dien_bien, .nguyen_nhan, 
-                   .ket_qua, .y_nghia, .bai_hoc_kinh_nghiem, .image_url, .locations} as event,
-                collect(DISTINCT {
-                    person: p.name,
-                    relation: type(r),
-                    role: p.vai_tro
-                }) as participants,
-                collect(DISTINCT {
-                    organization: o.name,
-                    relation: type(r2)
-                }) as organizations
+                o {.id, .name, .type, .founded_year, .headquarters, .description} as organization,
+                [(o)-[rm]-(p:NhanVat) | {
+                    name: p.name, vai_tro: p.vai_tro, chuc_vu: p.chuc_vu, relation: type(rm),
+                    role: CASE type(rm)
+                        WHEN 'THUOC_VE' THEN 'Thành viên'
+                        WHEN 'LANH_DAO' THEN 'Lãnh đạo'
+                        WHEN 'THAM_GIA' THEN 'Tham gia'
+                        WHEN 'SANG_LAP' THEN 'Người sáng lập'
+                        ELSE type(rm) END
+                }] as members,
+                [(o)-[rc]-(c:QuocGia) | {
+                    name: c.name, cap_do: c.cap_do, relation: type(rc),
+                    role: CASE type(rc)
+                        WHEN 'DAI_DIEN_CHO' THEN 'Đại diện cho'
+                        WHEN 'DUNG_DAU' THEN 'Lãnh đạo'
+                        WHEN 'THUOC_QUOC_GIA' THEN 'Trực thuộc'
+                        WHEN 'HO_TRO' THEN 'Hỗ trợ'
+                        ELSE type(rc) END
+                }] as countries
+            LIMIT 1
+        """
+
+    @staticmethod
+    def get_treaty_detail_with_relations():
+        return """
+            MATCH (t:HiepDinh)
+            WHERE toLower(t.name) = toLower($name)
+            RETURN 
+                t {.id, .name, .year, .signing_date, .location, .description, .noi_dung_chinh, .y_nghia, .bai_hoc_kinh_nghiem} as treaty,
+                [(t)-[rp]-(p:NhanVat) | {
+                    name: p.name, relation: type(rp),
+                    role: CASE type(rp) WHEN 'KY_KET' THEN 'Người ký' WHEN 'DAM_PHAN' THEN 'Người đàm phán' ELSE type(rp) END
+                }] as persons,
+                [(t)-[rc]-(c:QuocGia) | {
+                    name: c.name, relation: type(rc),
+                    role: CASE type(rc) WHEN 'THAM_GIA_KY' THEN 'Tham gia ký kết' ELSE type(rc) END
+                }] as countries,
+                [(t)-[re]-(e:SuKien) | {
+                    name: e.name, start_time: e.start_time, relation: type(re),
+                    role: CASE type(re) WHEN 'KET_THUC_SU_KIEN' THEN 'Kết thúc sự kiện' ELSE type(re) END
+                }] as events
+            LIMIT 1
+        """
+
+    @staticmethod
+    def get_country_detail_with_relations():
+        return """
+            MATCH (c:QuocGia)
+            WHERE toLower(c.name) = toLower($name)
+            RETURN 
+                c {.id, .name, .capital, .region, .description} as country,
+                [(c)-[rp]-(p:NhanVat) | {
+                    name: p.name, relation: type(rp),
+                    role: CASE type(rp) WHEN 'DUNG_DAU' THEN 'Lãnh đạo' WHEN 'DAI_DIEN_CHO' THEN 'Đại diện' ELSE type(rp) END
+                }] as persons,
+                [(c)-[re]-(e:SuKien) | {
+                    name: e.name, start_time: e.start_time, relation: type(re),
+                    role: CASE type(re) WHEN 'THAM_GIA' THEN 'Tham gia' WHEN 'KHOI_XUONG' THEN 'Khởi xướng' ELSE type(re) END
+                }] as events,
+                [(c)-[ro]-(o:ToChuc) | {
+                    name: o.name, relation: type(ro),
+                    role: CASE type(ro) WHEN 'THUOC_QUOC_GIA' THEN 'Tổ chức trực thuộc' ELSE type(ro) END
+                }] as organizations
+            LIMIT 1
+        """
+
+    @staticmethod
+    def get_period_detail_with_relations():
+        return """
+            MATCH (g:ThoiKy)
+            WHERE toLower(g.name) = toLower($name)
+            RETURN 
+                g {.id, .name, .start_year, .end_year, .description, .y_nghia} as period,
+                [(g)-[:THUOC_THOI_KY]-(e:SuKien) | {
+                    name: e.name, start_time: e.start_time, end_time: e.end_time, locations: e.locations
+                }] as events,
+                [(p:NhanVat)-[:THUOC_THOI_KY]->(g) | {
+                    name: p.name, vai_tro: p.vai_tro
+                }] as persons
             LIMIT 1
         """
     
@@ -519,24 +576,25 @@ class CypherQueries:
     
     @staticmethod
     def get_person_relations(person_name):
-        """Lấy mối quan hệ giữa Nhân vật và Nhân vật (Ví dụ: Cấp trên, đồng chí, đối đầu, lật đổ...)"""
         return """
             MATCH (p:NhanVat)
-            WHERE toLower(p.name) CONTAINS toLower($name) OR toLower(p.ten_day_du) CONTAINS toLower($name)
+            WHERE toLower(p.name) = toLower($name) OR toLower(p.ten_day_du) = toLower($name)
+               OR toLower(p.name) CONTAINS toLower($name) OR toLower(p.ten_day_du) CONTAINS toLower($name)
+            WITH p
+            ORDER BY CASE WHEN toLower(p.name) = toLower($name) OR toLower(p.ten_day_du) = toLower($name) THEN 0 ELSE 1 END ASC
+            LIMIT 1
+            
             MATCH (p)-[r]-(p2:NhanVat)
             RETURN 
                 p.name as person_name,
                 p2.name as related_person,
                 type(r) as relation,
                 CASE type(r)
-                    // Nhóm quan hệ Lãnh đạo - Cấp dưới
                     WHEN 'LANH_DAO_CAP_TREN' THEN 'Lãnh đạo / Cấp trên'
                     WHEN 'LANH_DAO_CAP_DUOI' THEN 'Cấp dưới'
                     WHEN 'LANH_DAO_CAP_TREN_THAY_TRO' THEN 'Thầy trò'
                     WHEN 'THAM_MUU_TRUONG_DUOI_QUYEN' THEN 'Tham mưu trưởng'
                     WHEN 'CHI_HUY_CHIEN_SI' THEN 'Chiến sĩ'
-                    
-                    // Nhóm quan hệ Đồng chí - Cộng sự
                     WHEN 'DONG_CHI' THEN 'Đồng chí'
                     WHEN 'LANH_DAO_DONG_CHI' THEN 'Lãnh đạo / Đồng chí'
                     WHEN 'DONG_CHI_COT_CAN' THEN 'Đồng chí cốt cán'
@@ -545,21 +603,15 @@ class CypherQueries:
                     WHEN 'HOC_TRO_CONG_SU' THEN 'Cộng sự / Học trò'
                     WHEN 'HOC_TRO_CU' THEN 'Học trò cũ'
                     WHEN 'LANH_DAO_DONG_MINH' THEN 'Đồng minh'
-                    
-                    // Nhóm quan hệ Kế thừa - Chuyển giao
                     WHEN 'TIEN_BOI_CACH_MANG' THEN 'Tiền bối cách mạng'
                     WHEN 'KE_NHIEM' THEN 'Kế nhiệm'
                     WHEN 'CHUYEN_GIAO_QUYEN_LUC' THEN 'Chuyển giao quyền lực'
                     WHEN 'PHO_TONG_THONG' THEN 'Phó tổng thống'
-                    
-                    // Nhóm quan hệ Đối đầu - Xung đột
                     WHEN 'DOI_DAU' THEN 'Đối đầu'
                     WHEN 'DOI_DAU_BAT_SONG' THEN 'Bắt sống'
                     WHEN 'DOI_LAP' THEN 'Đối lập'
                     WHEN 'DOI_THU_CHINH_TRI' THEN 'Đối thủ chính trị'
                     WHEN 'DOI_THU_DAM_PHAN' THEN 'Đối thủ đàm phán'
-                    
-                    // Nhóm quan hệ Lật đổ - Chống đối
                     WHEN 'LAT_DO' THEN 'Lật đổ'
                     WHEN 'BI_LAT_DO' THEN 'Bị lật đổ'
                     WHEN 'DONG_MINH_LAT_DO' THEN 'Đồng minh lật đổ'
@@ -567,8 +619,6 @@ class CypherQueries:
                     WHEN 'LANH_DAO_BI_CHONG_DOI' THEN 'Lãnh đạo bị chống đối'
                     WHEN 'PHE_TRUAT' THEN 'Phế truất'
                     WHEN 'BI_PHE_TRUAT' THEN 'Bị phế truất'
-                    
-                    // Fallback
                     ELSE type(r)
                 END as relation_name
             LIMIT 30
@@ -576,10 +626,13 @@ class CypherQueries:
 
     @staticmethod
     def get_event_relations(event_name):
-        """Lấy mối quan hệ giữa Sự kiện và Sự kiện (Ví dụ: Tiền đề, kết quả, bước ngoặt)"""
         return """
             MATCH (e:SuKien)
-            WHERE toLower(e.name) CONTAINS toLower($name)
+            WHERE toLower(e.name) = toLower($name) OR toLower(e.name) CONTAINS toLower($name)
+            WITH e
+            ORDER BY CASE WHEN toLower(e.name) = toLower($name) THEN 0 ELSE 1 END ASC
+            LIMIT 1
+            
             MATCH (e)-[r]-(e2:SuKien)
             RETURN 
                 e.name as event_name,
@@ -589,6 +642,7 @@ class CypherQueries:
                 CASE type(r)
                     WHEN 'TIEN_DE_CHO' THEN 'Tiền đề cho'
                     WHEN 'BUOC_NGOAT_DAN_DEN' THEN 'Bước ngoặt dẫn đến'
+                    WHEN 'CHAM_NGOI_CHO' THEN 'Châm ngòi cho'
                     WHEN 'KET_QUA_CUA' THEN 'Kết quả của'
                     WHEN 'NAM_TRONG' THEN 'Nằm trong'
                     WHEN 'DIEN_BIEN_CUA' THEN 'Diễn biến của'
@@ -597,59 +651,3 @@ class CypherQueries:
                 END as relation_name
             LIMIT 15
         """
-
-    # ==================== CÂU HỎI GỢI Ý CHO CHAT AI (CẬP NHẬT) ====================
-    
-    @staticmethod
-    def get_suggested_questions():
-        """Trả về danh sách câu hỏi gợi ý cho Chat AI bám sát các Intent đã định nghĩa"""
-        return [
-            # battle_participants
-            "Ai là người chỉ huy trận Bạch Đằng năm 938?",
-            "Những nhân vật nào tham gia Chiến dịch Hồ Chí Minh?",
-            
-            # event_location
-            "Trận Ngọc Hồi Đống Đa diễn ra ở đâu?",
-            
-            # event_cause_result
-            "Nguyên nhân và kết quả của sự kiện Vịnh Bắc Bộ là gì?",
-            
-            # organization_members
-            "Những nhân vật lịch sử nào thuộc Vương triều Trần?",
-            
-            # person_organizations
-            "Chủ tịch Hồ Chí Minh đã tham gia và sáng lập những tổ chức nào?",
-            
-            # event_time
-            "Cách mạng tháng Tám diễn ra vào thời gian nào?",
-            
-            # treaty_participants
-            "Những ai đã tham gia đàm phán Hiệp định Paris?",
-            
-            # person_info
-            "Cho tôi biết thông tin tiểu sử của Hưng Đạo Đại Vương Trần Quốc Tuấn?",
-            
-            # period_events
-            "Kể tên các sự kiện diễn ra trong Thời kỳ Phong kiến độc lập?",
-            
-            # period_info (mới)
-            "Thời kỳ Bắc thuộc và Chống Bắc thuộc kéo dài bao lâu và có ý nghĩa gì?",
-            
-            # treaty_info (mới)
-            "Hiệp định Genève có nội dung chính là gì?",
-            
-            # organization_info (mới)
-            "Đảng Cộng sản Việt Nam được thành lập năm nào và vai trò là gì?",
-            
-            # country_info (mới)
-            "Quốc gia Đại Việt có thủ đô ở đâu và tồn tại trong thời kỳ nào?",
-            
-            # search
-            "Ý nghĩa lịch sử của phong trào Đồng Khởi là gì?"
-
-            # person_relations
-            "Trần Hưng Đạo có mối quan hệ như thế nào với Trần Quang Khải?",
-
-            # event_relations
-            "Sự kiện Vịnh Bắc Bộ là tiền đề dẫn đến sự kiện nào?",
-        ]

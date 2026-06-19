@@ -102,9 +102,16 @@
         .then(res => res.json())
         .then(data => {
             if (data.success) {
+                alert(data.message);
                 window.location.href = '/admin/countryAdmin';
             } else {
-                alert("Lỗi: " + data.error);
+                // Sửa đoạn bắt lỗi trùng lặp ở đây để hiển thị dưới ô Tên quốc gia
+                if (data.error && data.error.includes("đã tồn tại")) {
+                    showError('nodeName', 'Quốc gia này đã tồn tại trong hệ thống!');
+                    firstFocus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    alert("Lỗi: " + data.error);
+                }
                 saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
                 saveBtn.disabled = false;
             }

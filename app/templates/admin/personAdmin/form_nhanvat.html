@@ -146,6 +146,34 @@
         let isValid = true;
         let firstFocus = null;
 
+        // Hàm hỗ trợ chuyển đổi mọi định dạng sang số năm để so sánh
+        function parseYearForComparison(dateStr) {
+            if (!dateStr) return null;
+            dateStr = dateStr.toString().toUpperCase();
+            
+            // Xử lý TCN (số âm)
+            if (dateStr.includes('TCN')) {
+                const num = dateStr.replace(/[^0-9]/g, '');
+                return num ? -parseInt(num) : null;
+            }
+            
+            // Lấy 4 chữ số cuối (phòng trường hợp DD/MM/YYYY)
+            const num = dateStr.replace(/[^0-9]/g, '');
+            if (num.length >= 4) {
+                return parseInt(num.slice(-4));
+            }
+            return parseInt(num);
+        }
+
+        // Trong hàm saveData, trước đoạn isValid, thêm kiểm tra logic:
+        const birthYear = parseYearForComparison(ngaySinhField);
+        const deathYear = parseYearForComparison(ngayMatField);
+
+        if (birthYear !== null && deathYear !== null && deathYear < birthYear) {
+            showError('nodeNgayMat', 'Ngày mất không được trước Ngày sinh!');
+            isValid = false;
+        }
+
         function showError(id, message) {
             const el = document.getElementById(id);
             el.style.borderColor = '#e74c3c'; 
@@ -223,6 +251,7 @@
         .then(res => res.json())
         .then(data => {
             if(data.success) {
+                alert(data.message);
                 window.location.href = '/admin/personAdmin';
             } else {
                 alert("Lỗi: " + data.error);

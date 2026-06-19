@@ -21,7 +21,7 @@ def init_default_admin():
                 
                 # Lấy dữ liệu từ .env
                 name = os.getenv("DEFAULT_ADMIN_NAME", "Admin Lịch Sử")
-                email = os.getenv("DEFAULT_ADMIN_EMAIL", "quocnghia2004nt@gmail.com")
+                email = os.getenv("DEFAULT_ADMIN_EMAIL", "nghia.tq.64cntt@ntu.edu.vn")
                 password = os.getenv("DEFAULT_ADMIN_PASSWORD", "123456")
                 
                 # Băm (hash) mật khẩu

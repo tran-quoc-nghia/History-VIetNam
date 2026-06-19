@@ -76,35 +76,25 @@
         return str.trim().replace(/\s+/g, ' ').toLowerCase().replace(/(^|\s)\S/g, letter => letter.toUpperCase()); 
     }
 
-    // Hàm chuyển đổi YYYY-MM-DD (kể cả có đuôi thời gian T) sang DD/MM/YYYY
     function convertToVNFormat(dateStr) {
         if (!dateStr) return '';
         dateStr = dateStr.trim();
-        
-        // 1. Cắt bỏ phần đuôi thời gian nếu có (chữ T hoặc khoảng trắng)
-        if (dateStr.includes('T')) {
-            dateStr = dateStr.split('T')[0];
-        } else if (dateStr.includes(' ')) {
-            dateStr = dateStr.split(' ')[0];
-        }
+        if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+        else if (dateStr.includes(' ')) dateStr = dateStr.split(' ')[0];
 
-        // 2. Lật ngược YYYY-MM-DD sang DD/MM/YYYY
         if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
             const parts = dateStr.split('-');
             return `${parts[2]}/${parts[1]}/${parts[0]}`;
         }
-        
-        return dateStr; // Trả về nguyên gốc nếu nó đã đúng chuẩn
+        return dateStr;
     }
 
     document.addEventListener('DOMContentLoaded', function() {
         const inputName = document.getElementById('nodeName');
         const inputLocation = document.getElementById('nodeLocation');
-
         if (inputName) inputName.addEventListener('blur', function() { this.value = formatVietnameseName(this.value); });
         if (inputLocation) inputLocation.addEventListener('blur', function() { this.value = formatVietnameseName(this.value); });
 
-        // Ép định dạng dd/mm/yyyy khi vừa load trang (Bao gồm xóa chữ T)
         const dateInput = document.getElementById('nodeSigningDate');
         if (dateInput && dateInput.value) {
             dateInput.value = convertToVNFormat(dateInput.value);
@@ -112,25 +102,21 @@
     });
 
     function saveData() {
-        const nameField = formatVietnameseName(document.getElementById('nodeName').value);
-        const signingDateField = document.getElementById('nodeSigningDate').value.trim();
-        const locationField = formatVietnameseName(document.getElementById('nodeLocation').value);
-
-        // Reset lại màu viền và xóa các cảnh báo cũ
+        // 1. Reset trạng thái
+        document.querySelectorAll('.error-msg').forEach(el => el.remove());
         const requiredFields = ['nodeName', 'nodeSigningDate', 'nodeLocation'];
         requiredFields.forEach(id => {
             const el = document.getElementById(id);
-            el.style.borderColor = '#ccc';
-            const oldError = el.parentNode.querySelector('.error-msg');
-            if (oldError) oldError.remove();
+            if(el) el.style.borderColor = '#ccc';
         });
 
         let isValid = true;
         let firstFocus = null;
 
-        // Hàm tô viền đỏ và in ra cảnh báo
+        // 2. Hàm gán lỗi tại chỗ
         function showError(id, message) {
             const el = document.getElementById(id);
+            if(!el) return;
             el.style.borderColor = '#e74c3c';
             
             const errorMsg = document.createElement('div');
@@ -146,30 +132,29 @@
             isValid = false;
         }
 
-        // Bắt lỗi dữ liệu trống
+        // 3. Lấy dữ liệu
+        const nameField = formatVietnameseName(document.getElementById('nodeName').value);
+        const signingDateField = document.getElementById('nodeSigningDate').value.trim();
+        const locationField = formatVietnameseName(document.getElementById('nodeLocation').value);
+
+        // 4. Bắt lỗi dữ liệu trống (Ngoại lệ 7.b)
         if(!nameField) showError('nodeName', 'Vui lòng nhập Tên hiệp định!');
         if(!signingDateField) showError('nodeSigningDate', 'Vui lòng nhập Ngày kí chính thức!');
         if(!locationField) showError('nodeLocation', 'Vui lòng nhập Địa điểm!');
 
-        // Nếu có lỗi thì block lệnh gửi lên Server và focus chuột vào ô đầu tiên bị lỗi
+        // Nếu có lỗi, cuộn màn hình đến lỗi đó và chặn gửi
         if(!isValid) {
+            firstFocus.scrollIntoView({ behavior: 'smooth', block: 'center' });
             firstFocus.focus();
             return;
         }
 
+        // 5. Chuẩn bị dữ liệu để gửi
         let yearField = document.getElementById('nodeYear').value.trim();
-        let descField = document.getElementById('nodeDescription').value.trim() || "Không rõ";
-        let noiDungField = document.getElementById('nodeNoiDungChinh').value.trim() || "Không rõ";
-        let yNghiaField = document.getElementById('nodeYNghia').value.trim() || "Không rõ";
-        let baiHocField = document.getElementById('nodeBaiHoc').value.trim() || "Không rõ";
-
-        // Tự động tách Năm từ Ngày ký (Hỗ trợ định dạng dd/mm/yyyy)
         if(!yearField && signingDateField) {
-            if(signingDateField.includes('/')) {
-                yearField = signingDateField.split('/').pop();
-            } else if (signingDateField.includes('-')) {
-                yearField = signingDateField.split('-')[0];
-            } else {
+            if(signingDateField.includes('/')) yearField = signingDateField.split('/').pop();
+            else if (signingDateField.includes('-')) yearField = signingDateField.split('-')[0];
+            else {
                 const match = signingDateField.match(/\d{4}/);
                 if(match) yearField = match[0];
             }
@@ -185,24 +170,29 @@
         formData.append('signing_date', signingDateField);
         formData.append('year', yearField);
         formData.append('location', locationField);
-        formData.append('description', descField);
-        formData.append('noi_dung_chinh', noiDungField);
-        formData.append('y_nghia', yNghiaField);
-        formData.append('bai_hoc_kinh_nghiem', baiHocField);
+        formData.append('description', document.getElementById('nodeDescription').value.trim() || "Không rõ");
+        formData.append('noi_dung_chinh', document.getElementById('nodeNoiDungChinh').value.trim() || "Không rõ");
+        formData.append('y_nghia', document.getElementById('nodeYNghia').value.trim() || "Không rõ");
+        formData.append('bai_hoc_kinh_nghiem', document.getElementById('nodeBaiHoc').value.trim() || "Không rõ");
 
         const id = document.getElementById('nodeId').value;
         const method = id ? 'PUT' : 'POST';
 
-        fetch('/admin/api/treaties', {
-            method: method,
-            body: formData
-        })
+        fetch('/admin/api/treaties', { method: method, body: formData })
         .then(res => res.json())
         .then(data => {
             if(data.success) {
+                // 8. Thông báo thành công
+                alert(data.message);
                 window.location.href = '/admin/treatyAdmin';
             } else {
-                alert("Lỗi: " + data.error);
+                // Ngoại lệ 7.c: Bắt lỗi trùng từ Server và hiển thị dưới ô Tên
+                if(data.error && data.error.includes("đã tồn tại")) {
+                    showError('nodeName', 'Hiệp định này đã tồn tại trong hệ thống!');
+                    firstFocus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    alert("Lỗi: " + data.error);
+                }
                 saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
                 saveBtn.disabled = false;
             }   

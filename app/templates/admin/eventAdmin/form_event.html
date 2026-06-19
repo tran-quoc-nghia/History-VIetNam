@@ -141,149 +141,133 @@
 
 {% block extra_js %}
 <script>
+    // Hàm chuyển đổi định dạng ngày/năm sang số năm để so sánh
+    function parseYearForComparison(dateStr) {
+        if (!dateStr) return null;
+        let s = dateStr.toString().toUpperCase().trim();
+        if (s.includes('TCN')) {
+            const num = s.replace(/[^0-9]/g, '');
+            return num ? -parseInt(num) : null;
+        }
+        const num = s.replace(/[^0-9]/g, '');
+        return num.length >= 4 ? parseInt(num.slice(-4)) : parseInt(num);
+    }
+
     function saveData() {
-    // Xóa toàn bộ thông báo lỗi cũ
-    document.querySelectorAll('.error-msg').forEach(el => el.remove());
+        // 1. Xóa toàn bộ thông báo lỗi và reset viền
+        document.querySelectorAll('.error-msg').forEach(el => el.remove());
+        const fields = ['nodeName', 'nodeStartDate', 'nodeEndDate'];
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.borderColor = '#ccc';
+        });
 
-    // Reset viền về trạng thái bình thường
-    const fieldIds = ['nodeName', 'nodeStartDate', 'nodeEndDate', 'nodeLocations', 
-                      'nodeNguyenNhan', 'nodeDescription', 'nodeKetQua', 'nodeYNghia', 'nodeBaiHoc'];
-    fieldIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.borderColor = '#ccc';
-    });
+        let isValid = true;
+        let firstErrorElement = null;
 
-    let nameField = document.getElementById('nodeName').value.trim();
-    let startDate = document.getElementById('nodeStartDate').value.trim();
-    let endDate = document.getElementById('nodeEndDate').value.trim();
-    let locations = document.getElementById('nodeLocations').value.trim();
-    let nguyenNhan = document.getElementById('nodeNguyenNhan').value.trim();
-    let dienBien = document.getElementById('nodeDescription').value.trim();
-    let ketQua = document.getElementById('nodeKetQua').value.trim();
-    let yNghia = document.getElementById('nodeYNghia').value.trim();
-    let baiHoc = document.getElementById('nodeBaiHoc').value.trim();
+        // Hàm hiển thị lỗi dưới mỗi ô
+        function addError(id, message) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.style.borderColor = '#e74c3c';
+            const errorMsg = document.createElement('div');
+            errorMsg.className = 'error-msg';
+            errorMsg.style.color = '#e74c3c';
+            errorMsg.style.fontSize = '12.5px';
+            errorMsg.style.marginTop = '6px';
+            errorMsg.style.fontStyle = 'italic';
+            errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + message;
+            el.parentNode.appendChild(errorMsg);
+            
+            if (!firstErrorElement) firstErrorElement = el;
+            isValid = false;
+        }
 
-    let isValid = true;
-    let firstFocus = null;
+        // 2. Thu thập dữ liệu
+        let name = document.getElementById('nodeName').value.trim();
+        let startDate = document.getElementById('nodeStartDate').value.trim();
+        let endDate = document.getElementById('nodeEndDate').value.trim();
 
-    function showError(id, message) {
-        const el = document.getElementById(id);
-        el.style.borderColor = '#e74c3c';
-        const errorMsg = document.createElement('div');
-        errorMsg.className = 'error-msg';
-        errorMsg.style.color = '#e74c3c';
-        errorMsg.style.fontSize = '12.5px';
-        errorMsg.style.marginTop = '6px';
-        errorMsg.style.fontStyle = 'italic';
-        errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + message;
-        el.parentNode.appendChild(errorMsg);
-        if (!firstFocus) firstFocus = el;
-        isValid = false;
-    }
+        // 3. Kiểm tra các lỗi tại chỗ (Validation Client)
+        if (!name) addError('nodeName', 'Vui lòng điền Tên sự kiện!');
+        if (!startDate) addError('nodeStartDate', 'Vui lòng điền Ngày bắt đầu!');
+        if (!endDate) addError('nodeEndDate', 'Vui lòng điền Ngày kết thúc!');
 
-    // Kiểm tra các trường bắt buộc (có dấu * đỏ)
-    if (!nameField) showError('nodeName', 'Vui lòng nhập Tên sự kiện!');
-    if (!startDate) showError('nodeStartDate', 'Vui lòng nhập Ngày bắt đầu!');
-    if (!endDate) showError('nodeEndDate', 'Vui lòng nhập Ngày kết thúc!');
+        // 7.b.1: Ngày kết thúc trước ngày bắt đầu
+        if (startDate && endDate) {
+            const startY = parseYearForComparison(startDate);
+            const endY = parseYearForComparison(endDate);
+            if (startY !== null && endY !== null && endY < startY) {
+                addError('nodeEndDate', 'Ngày kết thúc không được trước Ngày bắt đầu!');
+            }
+        }
 
-    if (!isValid) {
-        firstFocus.focus();
-        return;
-    }
+        // Nếu có bất kỳ lỗi nào, cuộn đến ô lỗi đầu tiên và dừng lại
+        if (!isValid) {
+            firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstErrorElement.focus();
+            return;
+        }
 
-    // Tự động gán "Không rõ" cho các trường không bắt buộc nếu bị bỏ trống
-    if (!locations) locations = 'Không rõ';
-    if (!nguyenNhan) nguyenNhan = 'Không rõ';
-    if (!dienBien) dienBien = 'Không rõ';
-    if (!ketQua) ketQua = 'Không rõ';
-    if (!yNghia) yNghia = 'Không rõ';
-    if (!baiHoc) baiHoc = 'Không rõ';
+        // 4. Nếu hợp lệ, tiến hành lưu
+        const saveBtn = document.querySelector('.btn-save');
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+        saveBtn.disabled = true;
 
-    const saveBtn = document.querySelector('.btn-save');
-    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
-    saveBtn.disabled = true;
+        const formData = new FormData();
+        formData.append('id', document.getElementById('nodeId').value);
+        formData.append('name', name);
+        formData.append('start_time', startDate);
+        formData.append('end_time', endDate);
+        formData.append('locations', document.getElementById('nodeLocations').value.trim() || 'Không rõ');
+        formData.append('nguyen_nhan', document.getElementById('nodeNguyenNhan').value.trim() || 'Không rõ');
+        formData.append('dien_bien', document.getElementById('nodeDescription').value.trim() || 'Không rõ');
+        formData.append('ket_qua', document.getElementById('nodeKetQua').value.trim() || 'Không rõ');
+        formData.append('y_nghia', document.getElementById('nodeYNghia').value.trim() || 'Không rõ');
+        formData.append('bai_hoc_kinh_nghiem', document.getElementById('nodeBaiHoc').value.trim() || 'Không rõ');
 
-    const formData = new FormData();
-    formData.append('id', document.getElementById('nodeId').value);
-    formData.append('name', nameField);
-    formData.append('start_time', startDate);
-    formData.append('end_time', endDate);
-    formData.append('locations', locations);
-    formData.append('nguyen_nhan', nguyenNhan);
-    formData.append('dien_bien', dienBien);
-    formData.append('ket_qua', ketQua);
-    formData.append('y_nghia', yNghia);
-    formData.append('bai_hoc_kinh_nghiem', baiHoc);
+        const fileInput = document.getElementById('nodeImageFile');
+        if (fileInput.files.length > 0) formData.append('image', fileInput.files[0]);
+        else if (document.getElementById('currentImage')) formData.append('image_url', document.getElementById('currentImage').value);
 
-    const fileInput = document.getElementById('nodeImageFile');
-    if (fileInput.files.length > 0) {
-        formData.append('image', fileInput.files[0]);
-    } else {
-        const currentImage = document.getElementById('currentImage');
-        if (currentImage) formData.append('image_url', currentImage.value);
-    }
+        const method = document.getElementById('nodeId').value ? 'PUT' : 'POST';
 
-    const method = document.getElementById('nodeId').value ? 'PUT' : 'POST';
-
-    fetch('/admin/api/events', {
-        method: method,
-        body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            window.location.href = '/admin/eventAdmin';
-        } else {
-            alert("Lỗi: " + data.error);
+        fetch('/admin/api/events', { method: method, body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.href = '/admin/eventAdmin';
+            } else {
+                if (data.error.includes("đã tồn tại")) {
+                    addError('nodeName', 'Sự kiện này đã tồn tại trong hệ thống!');
+                    firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else if (data.error.includes("trước Ngày bắt đầu")) {
+                    addError('nodeEndDate', data.error);
+                    firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    alert("Lỗi: " + data.error); 
+                }
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
+                saveBtn.disabled = false;
+            }
+        })
+        .catch(err => {
+            alert("Lỗi kết nối API: " + err);
             saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
             saveBtn.disabled = false;
-        }
-    })
-    .catch(err => {
-        alert("Lỗi kết nối API: " + err);
-        saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
-        saveBtn.disabled = false;
-    });
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    function formatInputDate(inputId) {
-        const inputEl = document.getElementById(inputId);
-        if (!inputEl) return;
-        
-        let val = inputEl.value.trim();
-        
-        if (val && val.includes('T')) {
-            let datePart = val.split('T')[0];
-            let parts = datePart.split('-');
-            if (parts.length === 3) {
-                inputEl.value = `${parts[2]}/${parts[1]}/${parts[0]}`;
-            }
-        } 
-        else if (val && val.includes('-') && !val.includes('TCN')) {
-            let parts = val.split('-');
-            if (parts.length === 3 && parts[0].length === 4) {
-                inputEl.value = `${parts[2]}/${parts[1]}/${parts[0]}`;
-            }
-        }
+        });
     }
 
-    formatInputDate('nodeStartDate');
-    formatInputDate('nodeEndDate');
-    })
+    // Hàm format hiển thị ngày tháng
     document.addEventListener('DOMContentLoaded', function() {
         function formatInputDate(inputId) {
             const inputEl = document.getElementById(inputId);
             if (!inputEl) return;
-            
             let val = inputEl.value.trim();
-            
             if (val && val.includes('T')) {
-                let datePart = val.split('T')[0];
-                let parts = datePart.split('-');
-                if (parts.length === 3) {
-                    inputEl.value = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                }
+                let parts = val.split('T')[0].split('-');
+                if (parts.length === 3) inputEl.value = `${parts[2]}/${parts[1]}/${parts[0]}`;
             } 
             else if (val && val.includes('-') && !val.includes('TCN')) {
                 let parts = val.split('-');
@@ -292,7 +276,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         }
-
         formatInputDate('nodeStartDate');
         formatInputDate('nodeEndDate');
     });

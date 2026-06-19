@@ -73,6 +73,7 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
+                    alert(data.message)
                     window.location.reload();
                 } else { 
                     alert('Lỗi: ' + (data.error || 'Lỗi không xác định')); 

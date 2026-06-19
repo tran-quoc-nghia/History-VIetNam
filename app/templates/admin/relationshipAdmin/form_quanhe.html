@@ -102,7 +102,7 @@
                     </div>
 
                     <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: right;">
-                        <a href="/admin/relationshipAdmin" class="btn-cancel">Hủy bỏ</a>
+                        <a href="javascript:history.back()" class="btn-cancel">Hủy bỏ</a>
                         <button class="btn-save" onclick="saveData()"><i class="fas fa-save"></i> Lưu Liên Kết</button>
                     </div>
                 </div>
@@ -153,22 +153,58 @@
         }
 
         function saveData() {
+            // Xóa lỗi cũ
+            document.querySelectorAll('.error-msg').forEach(el => el.remove());
+            const fields = ['sourceId', 'targetId', 'relType'];
+            fields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.borderColor = '#ccc';
+            });
+
+            let isValid = true;
+            let firstFocus = null;
+
+            function showError(id, message) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.style.borderColor = '#e74c3c';
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-msg';
+                errorDiv.style.color = '#e74c3c';
+                errorDiv.style.fontSize = '12.5px';
+                errorDiv.style.marginTop = '6px';
+                errorDiv.style.fontStyle = 'italic';
+                errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + message;
+                el.parentNode.appendChild(errorDiv);
+                if (!firstFocus) firstFocus = el;
+                isValid = false;
+            }
+
             const sourceId = document.getElementById('sourceId').value;
             const targetId = document.getElementById('targetId').value;
-            
             let rawRelType = document.getElementById('relType').value;
-            let relType = removeVietnameseTones(rawRelType);
-            relType = relType.trim().toUpperCase().replace(/\s+/g, '_');
+            let relType = removeVietnameseTones(rawRelType).trim().toUpperCase().replace(/\s+/g, '_');
 
-            if (!sourceId || !targetId || !relType) {
-                alert("Vui lòng chọn đầy đủ Nguồn, Đích và nhập Loại quan hệ!");
+            // Bắt lỗi rỗng
+            if (!sourceId) showError('sourceId', 'Vui lòng chọn Thực thể nguồn!');
+            if (!targetId) showError('targetId', 'Vui lòng chọn Thực thể đích!');
+            if (!relType) showError('relType', 'Vui lòng nhập hoặc chọn Loại mối quan hệ!');
+
+            if (!isValid) {
+                firstFocus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstFocus.focus();
                 return;
             }
 
+            // Bắt lỗi trùng thực thể
             if (sourceId === targetId) {
-                alert("Thực thể nguồn và đích không được giống nhau!");
+                showError('targetId', 'Thực thể đích không được trùng với Thực thể nguồn!');
                 return;
             }
+
+            const saveBtn = document.querySelector('.btn-save');
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+            saveBtn.disabled = true;
 
             const payloadData = {
                 source_id: sourceId,
@@ -182,88 +218,27 @@
                 body: JSON.stringify(payloadData)
             })
             .then(res => res.json())
-            .then(result => {
-                if(result.success) {
-                    alert(result.message);
-                    window.location.href = '/admin/relationshipAdmin';
+            .then(data => {
+                if(data.success) {
+                    alert(data.message);
+                    window.history.back();
                 } else {
-                    alert("Lỗi: " + result.error);
+                    if (data.error.includes("ĐÃ TỒN TẠI")) {
+                        showError('relType', data.error);
+                    } else if (data.error.includes("bị xóa hoặc không tồn tại")) {
+                        showError('sourceId', data.error);
+                    } else {
+                        alert("Lỗi: " + data.error);
+                    }
+                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu Liên Kết';
+                    saveBtn.disabled = false;
                 }
             })
-            .catch(err => alert("Lỗi kết nối API: " + err));
+            .catch(err => {
+                alert("Lỗi kết nối API: " + err);
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu Liên Kết';
+                saveBtn.disabled = false;
+            });
         }
-
-        // Xử lý sự kiện cho nút AI Extract
-        // --- XỬ LÝ AI EXTRACT ---
-        // document.getElementById('btnAiExtract').addEventListener('click', function() {
-        //     const textInput = document.getElementById('aiInput').value.trim();
-        //     if (!textInput) {
-        //         alert("Vui lòng nhập văn bản để AI phân tích!");
-        //         return;
-        //     }
-
-        //     // Hiển thị trạng thái loading
-        //     document.getElementById('aiLoading').style.display = 'block';
-        //     this.disabled = true;
-
-        //     fetch('/admin/api/ai/extract-relation', {
-        //         method: 'POST',
-        //         headers: { 'Content-Type': 'application/json' },
-        //         body: JSON.stringify({ text: textInput })
-        //     })
-        //     .then(res => res.json())
-        //     .then(result => {
-        //         document.getElementById('aiLoading').style.display = 'none';
-        //         document.getElementById('btnAiExtract').disabled = false;
-
-        //         if (result.success) {
-        //             const aiData = result.data;
-        //             console.log("AI phân tích được:", aiData); // Mở F12 để xem chi tiết
-                    
-        //             // Hàm phụ: Tìm Option gần giống nhất trong Select (không phân biệt hoa/thường)
-        //             function findOptionByText(selectElement, searchText) {
-        //                 const searchLower = searchText.toLowerCase();
-        //                 // Vì danh sách của bạn có dạng "Tên (Loại)", ví dụ "Võ Nguyên Giáp (NhanVat)"
-        //                 // Nên ta kiểm tra xem chuỗi option có chứa tên mà AI tìm được không
-        //                 for (let i = 0; i < selectElement.options.length; i++) {
-        //                     const optText = selectElement.options[i].text.toLowerCase();
-        //                     if (optText.includes(searchLower)) {
-        //                         return selectElement.options[i].value;
-        //                     }
-        //                 }
-        //                 return null;
-        //             }
-
-        //             // 1. Điền Nguồn
-        //             const sourceSelect = document.getElementById('sourceId');
-        //             const foundSourceId = findOptionByText(sourceSelect, aiData.source_name);
-        //             if (foundSourceId) {
-        //                 sourceSelect.value = foundSourceId;
-        //             } else {
-        //                 alert(`Lưu ý: AI tìm thấy nguồn là "${aiData.source_name}" nhưng không có trong CSDL của bạn.`);
-        //             }
-
-        //             // 2. Điền Đích
-        //             const targetSelect = document.getElementById('targetId');
-        //             const foundTargetId = findOptionByText(targetSelect, aiData.target_name);
-        //             if (foundTargetId) {
-        //                 targetSelect.value = foundTargetId;
-        //             } else {
-        //                 alert(`Lưu ý: AI tìm thấy đích là "${aiData.target_name}" nhưng không có trong CSDL của bạn.`);
-        //             }
-
-        //             // 3. Điền Loại quan hệ
-        //             document.getElementById('relType').value = aiData.rel_type;
-
-        //         } else {
-        //             alert("Lỗi AI: " + result.error);
-        //         }
-        //     })
-        //     .catch(err => {
-        //         document.getElementById('aiLoading').style.display = 'none';
-        //         document.getElementById('btnAiExtract').disabled = false;
-        //         alert("Lỗi kết nối đến API AI: " + err);
-        //     });
-        // });
     </script>
 {% endblock %}

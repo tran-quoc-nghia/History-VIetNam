@@ -123,32 +123,18 @@
         // Khởi tạo đồ thị
         const network = new vis.Network(container, data, options);
 
-        // THÊM MỚI: Bắt sự kiện Click để chuyển trang
-        network.on("click", function (params) {
+        // Bắt sự kiện Click để chuyển trang
+        network.on("doubleClick", function (params) {
             if (params.nodes.length > 0) {
                 const nodeId = params.nodes[0];
                 const clickedNode = nodesDataset.get(nodeId);
                 
                 // Kiểm tra xem node có chứa url được truyền từ file user_routes.py không
                 if (clickedNode && clickedNode.url) {
-                    // Dùng window.open('_blank') để mở tab mới, giúp người dùng không bị mất nội dung đoạn chat hiện tại
-                    window.open(clickedNode.url, '_blank'); 
+                    // Chuyển hướng trực tiếp trên cùng một tab
+                    window.location.href = clickedNode.url;
                 }
             }
-        });
-
-        // THÊM MỚI: Đổi con trỏ chuột thành hình bàn tay (pointer) khi di chuyển vào node có link
-        network.on("hoverNode", function (params) {
-            const nodeId = params.node;
-            const hoveredNode = nodesDataset.get(nodeId);
-            if (hoveredNode && hoveredNode.url) {
-                network.canvas.body.container.style.cursor = 'pointer';
-            }
-        });
-
-        // Trả lại con trỏ chuột bình thường khi di chuyển ra ngoài node
-        network.on("blurNode", function (params) {
-            network.canvas.body.container.style.cursor = 'default';
         });
     }
 
@@ -194,7 +180,7 @@
                 'Võ Nguyên Giáp đã tham gia những tổ chức nào?',
                 'Ai đã chỉ huy trận Khe Sanh?',
                 'Chiến dịch Hồ Chí Minh diễn ra khi nào?',
-                'Chiến dịch  Điện Biên Phủ có những ai tham gia?'
+                'Chiến dịch Điện Biên Phủ có những ai tham gia?'
             ]
         };
         addMessageDirectly(welcomeMsg);
@@ -305,48 +291,52 @@
     }
     
     function exportChat() {
-        if (chatHistory.messages.length === 0) {
-            showToast('Không có nội dung để xuất', 'error');
-            return;
-        }
+        // THAY ĐỔI TẠI ĐÂY: Kiểm tra xem đã có tin nhắn nào của người dùng (user) chưa
+        const hasUserMessage = chatHistory.messages.some(m => m.sender === 'user');
+        
+        if (!hasUserMessage) {
+            showToast('Chưa có nội dung để tải về', 'error');
+            return;
+        }
 
-        // Tạo tiêu đề cho file văn bản
-        let txtContent = "=================================================\n";
-        txtContent += "    LỊCH SỬ HỘI THOẠI - HỆ THỐNG HỎI ĐÁP LỊCH SỬ\n";
-        txtContent += `    Thời gian xuất: ${new Date().toLocaleString('vi-VN')}\n`;
-        txtContent += "=================================================\n\n";
+        // Tạo tiêu đề cho file văn bản
+        let txtContent = "=================================================\n";
+        txtContent += "    LỊCH SỬ HỘI THOẠI - HỆ THỐNG HỎI ĐÁP LỊCH SỬ\n";
+        txtContent += `    Thời gian xuất: ${new Date().toLocaleString('vi-VN')}\n`;
+        txtContent += "=================================================\n\n";
 
-        // Lặp qua các tin nhắn và định dạng lại
-        chatHistory.messages.forEach(m => {
-            const timeStr = new Date(m.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            
-            if (m.sender === 'user') {
-                txtContent += `[Học viên] (${timeStr}):\n`;
-                txtContent += `${m.text}\n\n`;
-            } else if (m.sender === 'bot') {
-                txtContent += `[Trợ lý AI] (${timeStr}):\n`;
-                // Loại bỏ các thẻ HTML cơ bản nếu có để file txt sạch sẽ hơn
-                let cleanText = m.text.replace(/<br\s*\/?>/gi, '\n');
-                cleanText = cleanText.replace(/<[^>]*>?/gm, ''); 
-                txtContent += `${cleanText}\n`;
-                txtContent += `-------------------------------------------------\n\n`;
-            }
-        });
+        // Lặp qua các tin nhắn và định dạng lại
+        chatHistory.messages.forEach(m => {
+            const timeStr = new Date(m.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            
+            if (m.sender === 'user') {
+                txtContent += `[Người dùng] (${timeStr}):\n`;
+                txtContent += `${m.text}\n\n`;
+            } else if (m.sender === 'bot' && m.id.indexOf('welcome-') === -1) {
+                // Chỉ xuất tin nhắn của bot nếu không phải câu chào mừng mặc định
+                txtContent += `[Trợ lý AI] (${timeStr}):\n`;
+                // Loại bỏ các thẻ HTML cơ bản nếu có để file txt sạch sẽ hơn
+                let cleanText = m.text.replace(/<br\s*\/?>/gi, '\n');
+                cleanText = cleanText.replace(/<[^>]*>?/gm, ''); 
+                txtContent += `${cleanText}\n`;
+                txtContent += `-------------------------------------------------\n\n`;
+            }
+        });
 
-        // Tạo Blob định dạng text/plain để xuất file TXT
-        const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        
-        // Đặt tên file có chứa ngày tháng
-        const dateStr = new Date().toISOString().split('T')[0];
-        a.download = `Tai-lieu-Lich-su-${dateStr}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
-        
-        showToast('Đã tải tài liệu hội thoại thành tệp TXT', 'success');
-    }
+        // Tạo Blob định dạng text/plain để xuất file TXT
+        const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        // Đặt tên file có chứa ngày tháng
+        const dateStr = new Date().toISOString().split('T')[0];
+        a.download = `Tai-lieu-Lich-su-${dateStr}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        showToast('Đã tải tài liệu hội thoại thành tệp TXT', 'success');
+    }
     
     function showToast(message, type = 'info') {
         const toast = document.createElement('div');

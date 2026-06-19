@@ -3,7 +3,7 @@ from app.services.neo4j_service import Neo4jService
 
 neo4j_service = Neo4jService()
 admin_name = "Admin Lịch Sử"
-admin_email = "quocnghia2004nt@gmail.com" # Đây là email dùng để đăng nhập và nhận link reset
+admin_email = "nghia.tq.64cntt@ntu.edu.vn" # Đây là email dùng để đăng nhập và nhận link reset
 admin_password = "123456" # Mật khẩu bạn muốn đặt
 
 # Băm mật khẩu

@@ -46,7 +46,7 @@
 {% block extra_js %}
 <script>
     function saveData() {
-    // Xóa lỗi cũ
+        // 1. Xóa toàn bộ thông báo lỗi cũ và reset viền
         document.querySelectorAll('.error-msg').forEach(el => el.remove());
         const fields = ['nodeName', 'nodeType', 'nodeHeadquarters', 'nodeFoundedYear', 'nodeDescription'];
         fields.forEach(id => {
@@ -54,17 +54,13 @@
             if (el) el.style.borderColor = '#ccc';
         });
 
-        let nameVal = document.getElementById('nodeName').value.trim();
-        let typeVal = document.getElementById('nodeType').value.trim();
-        let headquartersVal = document.getElementById('nodeHeadquarters').value.trim();
-        let foundedYearVal = document.getElementById('nodeFoundedYear').value.trim();
-        let descVal = document.getElementById('nodeDescription').value.trim();
-
         let isValid = true;
-        let firstFocus = null;
+        let firstErrorElement = null;
 
-        function showError(id, message) {
+        // Hàm hiển thị lỗi dưới mỗi ô
+        function addError(id, message) {
             const el = document.getElementById(id);
+            if (!el) return;
             el.style.borderColor = '#e74c3c';
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error-msg';
@@ -74,14 +70,24 @@
             errorDiv.style.fontStyle = 'italic';
             errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + message;
             el.parentNode.appendChild(errorDiv);
-            if (!firstFocus) firstFocus = el;
+            
+            if (!firstErrorElement) firstErrorElement = el;
             isValid = false;
         }
 
-        if (!nameVal) showError('nodeName', 'Vui lòng nhập Tên tổ chức!');
+        let nameVal = document.getElementById('nodeName').value.trim();
+        let typeVal = document.getElementById('nodeType').value.trim();
+        let headquartersVal = document.getElementById('nodeHeadquarters').value.trim();
+        let foundedYearVal = document.getElementById('nodeFoundedYear').value.trim();
+        let descVal = document.getElementById('nodeDescription').value.trim();
 
+        // 7.b.1: Bắt lỗi bỏ trống trường bắt buộc
+        if (!nameVal) addError('nodeName', 'Vui lòng nhập Tên tổ chức!');
+
+        // Nếu có lỗi, cuộn đến ô lỗi đầu tiên và dừng lại
         if (!isValid) {
-            firstFocus.focus();
+            firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstErrorElement.focus();
             return;
         }
 
@@ -110,9 +116,17 @@
         .then(res => res.json())
         .then(data => {
             if (data.success) {
+                // 8. Thông báo thêm thành công
+                alert(data.message);
                 window.location.href = '/admin/organizationAdmin';
             } else {
-                alert("Lỗi: " + data.error);
+                // Bắt lỗi từ server và gắn vào đúng ô tương ứng
+                if (data.error && data.error.includes("đã tồn tại")) {
+                    addError('nodeName', 'Tổ chức này đã tồn tại trong hệ thống!');
+                    firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    alert("Lỗi: " + data.error);
+                }
                 saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu dữ liệu';
                 saveBtn.disabled = false;
             }

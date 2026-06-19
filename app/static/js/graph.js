@@ -22,8 +22,8 @@ function drawGraph(data, centerNodeName, containerId = 'graphContainer') {
             font: { size: 12 }
         },
         interaction: {
-            hover: true, // Cho phép hover
-            tooltipDelay: 200 // Thời gian trễ khi hiện bảng thông tin (ms)
+            hover: true, 
+            tooltipDelay: 200
         },
         configure: {
             enabled: false
@@ -51,29 +51,56 @@ function drawGraph(data, centerNodeName, containerId = 'graphContainer') {
     };
 
     graphNetwork = new vis.Network(container, { nodes, edges }, options);
-    graphNetwork.on("click", function (params) {
-        // Nếu người dùng click trúng 1 node (mảng nodes có phần tử)
+    
+    graphNetwork.on("doubleClick", function (params) {
         if (params.nodes.length > 0) {
             const nodeId = params.nodes[0];
-            const clickedNode = nodes.get(nodeId); // Lấy dữ liệu của node được click từ DataSet
+            const clickedNode = nodes.get(nodeId); 
 
             if (clickedNode && clickedNode.type) {
-                // 1. Ánh xạ Loại Node (Neo4j) sang entity_type (để khớp với hàm generic_detail)
-                let entityType = '';
-                switch (clickedNode.type) {
-                    case 'NhanVat': entityType = 'person'; break;
-                    case 'SuKien': entityType = 'event'; break;
-                    case 'ToChuc': entityType = 'organization'; break;
-                    case 'HiepDinh': entityType = 'treaty'; break;
-                    case 'QuocGia': entityType = 'country'; break;
-                    case 'ThoiKy': entityType = 'period'; break;
-                    default: return; // Bỏ qua nếu không xác định được loại
+                // Kiểm tra xem người dùng đang ở trang Admin hay trang User
+                const isAdmin = window.location.pathname.startsWith('/admin');
+                let url = '';
+
+                if (isAdmin) {
+                    // ==========================================
+                    // 1. ĐIỀU HƯỚNG DÀNH CHO TRANG ADMIN
+                    // ==========================================
+                    let adminEntity = '';
+                    switch (clickedNode.type) {
+                        case 'NhanVat': adminEntity = 'personAdmin'; break;
+                        case 'SuKien': adminEntity = 'eventAdmin'; break;
+                        case 'ToChuc': adminEntity = 'organizationAdmin'; break;
+                        case 'HiepDinh': adminEntity = 'treatyAdmin'; break;
+                        case 'QuocGia': adminEntity = 'countryAdmin'; break;
+                        case 'ThoiKy': adminEntity = 'periodAdmin'; break;
+                        default: return; 
+                    }
+                    
+                    // Admin dùng ID hệ thống (VD: person_xxxx). Nếu graph API có truyền real_id thì lấy, nếu không lấy label tạm.
+                    const targetId = clickedNode.real_id || clickedNode.id; 
+                    url = `/admin/${adminEntity}/view/${encodeURIComponent(targetId)}`;
+
+                } else {
+                    // ==========================================
+                    // 2. ĐIỀU HƯỚNG DÀNH CHO TRANG USER 
+                    // ==========================================
+                    let userEntity = '';
+                    switch (clickedNode.type) {
+                        case 'NhanVat': userEntity = 'person'; break;
+                        case 'SuKien': userEntity = 'event'; break;
+                        case 'ToChuc': userEntity = 'organization'; break;
+                        case 'HiepDinh': userEntity = 'treaty'; break;
+                        case 'QuocGia': userEntity = 'country'; break;
+                        case 'ThoiKy': userEntity = 'period'; break;
+                        default: return; 
+                    }
+                    
+                    // User dùng Tên (Label)
+                    url = `/${userEntity}/detail/${encodeURIComponent(clickedNode.label)}`;
                 }
 
-                // 2. Chuyển hướng trang (Điều hướng URL)
-                const url = `/${entityType}/detail/${encodeURIComponent(clickedNode.label)}`;
-                
-                // Chuyển sang trang mới
+                // Thực hiện chuyển trang
                 window.location.href = url;
             }
         }
@@ -108,6 +135,6 @@ function loadGraphData(entityName, depth = 1, callback) {
         });
 }
 
-// Export functions - gán vào window để có thể gọi từ HTML
+// Export functions
 window.drawGraph = drawGraph;
 window.loadGraphData = loadGraphData;

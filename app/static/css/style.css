@@ -71,20 +71,6 @@ body {
     gap: 25px;
 }
 
-.student-info, .instructor-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    background: rgba(255,255,255,0.1);
-    padding: 8px 15px;
-    border-radius: 50px;
-}
-
-.student-info i, .instructor-info i {
-    color: var(--accent);
-}
-
 .main-nav {
     display: flex;
     justify-content: space-between;

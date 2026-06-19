@@ -61,7 +61,7 @@
 {% block extra_js %}
 <script>
     function deleteData(id) {
-        if (confirm('Bạn có chắc chắn muốn xóa nhân vật này và toàn bộ mối quan hệ của họ không?')) {
+        if (confirm('Bạn có chắc chắn muốn xóa nhân vật này không?')) {
             fetch('/admin/api/persons', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
@@ -70,6 +70,7 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
+                    alert(data.message);
                     window.location.reload();
                 } else {
                     alert('Xóa thất bại: ' + (data.error || 'Lỗi không xác định'));

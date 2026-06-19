@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 from app.services.neo4j_service import Neo4jService
-from datetime import datetime # Thêm thư viện xử lý ngày tháng
+from datetime import datetime 
 
 graph_bp = Blueprint('graph', __name__)
 neo4j_service = Neo4jService()
@@ -62,18 +62,9 @@ RELATIONSHIP_TRANSLATIONS = {
 
     # Nhóm gắn kết với Thời Kỳ (Period)
     'THUOC_THOI_KY': 'Thuộc thời kỳ', 
-    'MO_DAU_GIAI_DOAN': 'Mở đầu giai đoạn',
-    'KET_THUC_GIAI_DOAN': 'Kết thúc giai đoạn',
-    'CAN_THIEP_VAO': 'Can thiệp vào',
-    'TON_TAI_TRONG': 'Tồn tại trong',
-    'CAN_THIEP_TRONG': 'Can thiệp trong',
-    'DO_HO_TRONG': 'Đô hộ trong',
-    'XAM_LUOC_TRONG': 'Xâm lược trong',
-    'HO_TRO_TRONG': 'Hỗ trợ trong',
 
-    # Nhóm Nhân vật - Nhân vật (Bổ sung mới)
+    # Nhóm Nhân vật - Nhân vật
     'LANH_DAO_CAP_TREN': 'Lãnh đạo / Cấp trên',
-    'LANH_DAO_CAP_DUOI': 'Cấp dưới',
     'LANH_DAO_CAP_TREN_THAY_TRO': 'Thầy trò',
     'THAM_MUU_TRUONG_DUOI_QUYEN': 'Tham mưu trưởng',
     'CHI_HUY_CHIEN_SI': 'Chiến sĩ',
@@ -81,9 +72,7 @@ RELATIONSHIP_TRANSLATIONS = {
     'LANH_DAO_DONG_CHI': 'Lãnh đạo / Đồng chí',
     'DONG_CHI_COT_CAN': 'Đồng chí cốt cán',
     'DONG_CHI_CHI_HUY': 'Đồng chí / Chỉ huy',
-    'DONG_CHI_CAP_DUOI': 'Đồng chí cấp dưới',
     'HOC_TRO_CONG_SU': 'Cộng sự / Học trò',
-    'HOC_TRO_CU': 'Học trò cũ',
     'LANH_DAO_DONG_MINH': 'Đồng minh',
     'TIEN_BOI_CACH_MANG': 'Tiền bối cách mạng',
     'KE_NHIEM': 'Kế nhiệm',
@@ -94,21 +83,10 @@ RELATIONSHIP_TRANSLATIONS = {
     'DOI_THU_CHINH_TRI': 'Đối thủ chính trị',
     'DOI_THU_DAM_PHAN': 'Đối thủ đàm phán',
     'LAT_DO': 'Lật đổ',
-    'BI_LAT_DO': 'Bị lật đổ',
-    'DONG_MINH_LAT_DO': 'Đồng minh lật đổ',
     'CHONG_DOI_CAP_TREN': 'Chống đối cấp trên',
     'LANH_DAO_BI_CHONG_DOI': 'Bị chống đối',
     'PHE_TRUAT': 'Phế truất',
     'BI_PHE_TRUAT': 'Bị phế truất',
-
-    # NHÓM SỰ KIỆN - SỰ KIỆN 
-    'TIEN_DE_CHO': 'Tiền đề cho',
-    'BUOC_NGOAT_DAN_DEN': 'Bước ngoặt dẫn đến',
-    'KET_QUA_CUA': 'Kết quả của',
-    'NAM_TRONG': 'Nằm trong',
-    'DIEN_BIEN_CUA': 'Diễn biến của',
-    'KET_THUC_SU_KIEN': 'Kết thúc sự kiện',
-    'KHOI_XUONG': 'Khởi xướng',
 }
 
 # HÀM MỚI: Xử lý định dạng ngày tháng từ YYYY-MM-DD sang DD/MM/YYYY
@@ -219,6 +197,7 @@ def format_node(node, is_center=False):
         
     return {
         'id': node_id,
+        'real_id': node.get('id'),
         'label': str(node_name),
         'type': node_type,
         'title': props_table,
@@ -276,7 +255,7 @@ def get_graph_data(name):
 
 @graph_bp.route('/api/graph/person-battles/<path:name>')
 def get_person_battles_graph(name):
-    """Lấy dữ liệu đồ thị cho nhân vật và các trận chiến liên quan (Đã lược bỏ node địa điểm)"""
+    """Lấy dữ liệu đồ thị cho nhân vật và các trận chiến liên quan """
     try:
         with neo4j_service.driver.session() as session:
             query = """

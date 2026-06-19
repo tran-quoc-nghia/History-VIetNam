@@ -114,7 +114,6 @@ def build_network_graph(center_name, center_type, target_type, items, target_key
             from_node = center_name
             to_node = target_name
 
-            # Quy tắc 1: Nhân vật là chủ thể hành động -> trỏ tới các thực thể khác
             if center_type == target_type:
                 pass 
             # Quy tắc 1: Nhân vật là chủ thể hành động -> trỏ tới các thực thể khác
@@ -164,8 +163,6 @@ QUERY_DISPATCHER = {
     "organization_members": CypherQueries.get_organization_members,
     "person_organizations": CypherQueries.get_person_organizations,
     "period_events": CypherQueries.get_period_events,
-    "person_related_entities": CypherQueries.get_person_related_entities,
-    "event_related_entities": CypherQueries.get_event_related_entities,
     "treaty_participants": CypherQueries.get_treaty_participants,
     "person_relations": CypherQueries.get_person_relations,
     "event_relations": CypherQueries.get_event_relations,
@@ -212,27 +209,25 @@ def query_natural():
         if not results:
             return jsonify({
                 "success": True,
-                "answer": "Xin lỗi, tôi không tìm thấy thông tin phù hợp trong cơ sở dữ liệu lịch sử.",
+                "answer": f"Xin lỗi, tôi không tìm thấy thông tin về **'{param_val}'** trong hệ thống.\n\n💡 *Gợi ý: Có thể bạn đã viết sai tên, hoặc nhân vật/sự kiện này chưa được cập nhật vào cơ sở dữ liệu. Bạn hãy kiểm tra lại từ khóa nhé!*",
                 "data": [],
                 "graph": {"nodes": [], "edges": []}
             })
 
         # 4. Tạo đồ thị (Graph Data) - Tự động hóa dựa trên intent
-        # Bạn có thể mở rộng logic này để build đồ thị cho nhiều intent hơn
         graph_data = {"nodes": [], "edges": []}
         if intent == "person_battles":
             graph_data = build_network_graph(param_val, 'NhanVat', 'SuKien', results, 'battle_name', 'role', 'Tham gia')
         elif intent == "battle_participants":
             graph_data = build_network_graph(param_val, 'SuKien', 'NhanVat', results, 'person_name', 'role', 'Tham gia')
         elif intent == "organization_members":
-            # Đổi 'role' -> 'role_name' cho chuẩn với get_organization_members
             graph_data = build_network_graph(param_val, 'ToChuc', 'NhanVat', results, 'person_name', 'role_name', 'Thành viên')
         elif intent == "person_organizations":
             graph_data = build_network_graph(param_val, 'NhanVat', 'ToChuc', results, 'org_name', 'relation_name', 'Tham gia')
         elif intent == "period_events":
-            # Đổi 'result' -> 'relation' để lấy đúng nhãn "Thuộc thời kỳ"
             graph_data = build_network_graph(param_val, 'ThoiKy', 'SuKien', results, 'event_name', 'relation', 'Thuộc thời kỳ')
         elif intent == "treaty_participants":
+            # Xử lý đặc biệt nếu hàm parse trả về list, nếu dùng chung hàm build_network_graph thì có thể cần custom lại
             graph_data = build_network_graph(param_val, 'HiepDinh', 'NhanVat', results, 'person_name', 'role', 'Tham gia ký')
         elif intent == "person_relations":
             graph_data = build_network_graph(param_val, 'NhanVat', 'NhanVat', results, 'related_person', 'relation_name', 'Liên quan')
@@ -273,6 +268,7 @@ def query_natural():
         print(f">>> LỖI API Natural: {str(e)}")
         return jsonify({"success": False, "error": str(e)})
 
+
 def generate_fallback_answer(results, question, intent=None):
     """Tạo câu trả lời thủ công khi AI bị lỗi"""
     if not results:
@@ -282,7 +278,7 @@ def generate_fallback_answer(results, question, intent=None):
     
     # Xử lý theo intent để biết cách parse results
     if intent == "person_battles":
-        answer_parts.append(f"**Các trận chiến/sự kiện tham gia:**")
+        answer_parts.append("**Các trận chiến/sự kiện tham gia:**")
         for item in results[:10]:
             battle_name = item.get('battle_name', 'Không rõ')
             role = item.get('role', 'Tham gia')
@@ -306,12 +302,28 @@ def generate_fallback_answer(results, question, intent=None):
             answer_parts.append(f"- {person_name} ({role})")
     
     elif intent == "person_organizations":
-        person_name = results[0].get('person_name', 'người này') if results else 'người này'
+        person_name = results[0].get('person_name', 'Người này') if results else 'Người này'
         answer_parts.append(f"**Các tổ chức {person_name} tham gia:**")
         for item in results:
             org_name = item.get('org_name', 'Không rõ')
             relation = item.get('relation_name', 'Tham gia')
             answer_parts.append(f"- {org_name} ({relation})")
+
+    elif intent == "person_relations":
+        person_name = results[0].get('person_name', 'Nhân vật này') if results else 'Nhân vật này'
+        answer_parts.append(f"**Các mối quan hệ của {person_name}:**")
+        for item in results[:15]:
+            related_person = item.get('related_person', 'Không rõ')
+            relation = item.get('relation_name', 'Liên quan')
+            answer_parts.append(f"- {related_person} ({relation})")
+
+    elif intent == "event_relations":
+        event_name = results[0].get('event_name', 'Sự kiện này') if results else 'Sự kiện này'
+        answer_parts.append(f"**Các sự kiện liên quan đến {event_name}:**")
+        for item in results[:15]:
+            related_event = item.get('related_event', 'Không rõ')
+            relation = item.get('relation_name', 'Liên quan')
+            answer_parts.append(f"- {related_event} ({relation})")
     
     elif intent in ["person_info", "event_info", "period_info", "treaty_info", "organization_info", "country_info"]:
         # Các intent lấy thông tin chi tiết thường trả về 1 record
@@ -336,8 +348,9 @@ def generate_fallback_answer(results, question, intent=None):
         for item in results[:10]:
             event_name = item.get('event_name', 'Không rõ')
             start_time = item.get('start_time', '')
-            result = item.get('result', '')
-            answer_parts.append(f"- {event_name}" + (f" ({start_time})" if start_time else "") + (f" - Kết quả: {result}" if result else ""))
+            # Đã sửa lại key từ 'result' thành 'relation' cho đúng với query
+            relation = item.get('relation', '')
+            answer_parts.append(f"- {event_name}" + (f" ({start_time})" if start_time else ""))
     
     elif intent == "event_location":
         if results:
@@ -359,9 +372,22 @@ def generate_fallback_answer(results, question, intent=None):
                 answer_parts.append(f"- **Kết quả**: {item['ket_qua'][:300]}...")
             if item.get('y_nghia'):
                 answer_parts.append(f"- **Ý nghĩa**: {item['y_nghia'][:300]}...")
+                
+    elif intent == "treaty_participants":
+        if results:
+            item = results[0]
+            treaty_name = item.get('treaty_name', 'Hiệp định')
+            answer_parts.append(f"**{treaty_name}**")
+            negotiators = item.get('negotiators', [])
+            countries = item.get('countries', [])
+            
+            if negotiators:
+                answer_parts.append(f"- **Đại diện tham gia**: {', '.join(negotiators)}")
+            if countries:
+                answer_parts.append(f"- **Các quốc gia tham gia**: {', '.join(countries)}")
     
     elif intent == "general_qa" or intent == "search":
-        answer_parts.append(f"**Kết quả tìm kiếm:**")
+        answer_parts.append("**Kết quả tìm kiếm:**")
         for item in results[:10]:
             item_name = item.get('name', 'Không rõ')
             item_type = item.get('type', 'Không rõ') if 'type' in item else ''
@@ -370,7 +396,7 @@ def generate_fallback_answer(results, question, intent=None):
             # Hiển thị thêm thông tin nếu có
             for field in ['cuoc_doi', 'dien_bien', 'y_nghia', 'ket_qua', 'nguyen_nhan']:
                 if item.get(field):
-                    value = item[field][:200] + '...' if len(str(item[field])) > 200 else item[field]
+                    value = str(item[field])[:200] + '...' if len(str(item[field])) > 200 else str(item[field])
                     answer_parts.append(f"  - {field.replace('_', ' ').title()}: {value}")
                     break  # Chỉ hiển thị 1 field dài nhất
     
@@ -382,11 +408,7 @@ def generate_fallback_answer(results, question, intent=None):
 # ==================== API_FULL_QUERIES - CẬP NHẬT ĐẦY ĐỦ THÔNG TIN ====================
 API_FULL_QUERIES = {
     'persons': CypherQueries.get_all_persons(),
-    'organizations': CypherQueries.get_all_organizations(),
     'events': CypherQueries.get_all_events(),
-    'treaties': CypherQueries.get_all_treaties(),
-    'countries': CypherQueries.get_all_countries(),
-    'periods': CypherQueries.get_all_periods()
 }
 
 # ==================== ROUTE GỘP CHO CÁC TRANG LIST ====================
@@ -399,8 +421,8 @@ def generic_list(entity_type):
 
     with neo4j_service.driver.session() as session:
         if entity_type == 'person':
-            periods = parse_neo4j_data([dict(r) for r in session.run(CypherQueries.get_persons_by_period())])
-            return render_template('person/list.html', periods=periods)
+            persons = parse_neo4j_data([dict(r) for r in session.run(CypherQueries.get_all_persons())])
+            return render_template('person/list.html', persons=persons)
         elif entity_type == 'event':
             events = parse_neo4j_data([dict(r) for r in session.run(CypherQueries.get_all_events())])
             return render_template('event/list.html', events=events)
@@ -416,189 +438,79 @@ def generic_detail(entity_type, name):
         params = {"name": name.lower()}
         
         if entity_type == 'person':
-            p = session.run("MATCH (p:NhanVat) WHERE toLower(p.name) = $name RETURN p", params).single()
-            if not p: return "Không tìm thấy", 404
+            query = CypherQueries.get_person_detail_with_relations()
+            result = session.run(query, params).single()
+            if not result: return "Không tìm thấy", 404
             
-            exact_name = dict(p["p"]).get('name')
-            
-            events = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (p:NhanVat)-[r]-(e:SuKien) 
-                WHERE p.name = $exact_name 
-                RETURN e.name as name, e.start_time as start_time, e.end_time as end_time, 
-                       e.ket_qua as ket_qua, type(r) as relation,
-                       CASE type(r)
-                           WHEN 'CHI_HUY' THEN 'Chỉ huy'
-                           WHEN 'CHI_DAO' THEN 'Chỉ đạo'
-                           WHEN 'THAM_GIA' THEN 'Tham gia'
-                           WHEN 'KHOI_XUONG' THEN 'Khởi xướng'
-                           ELSE type(r)
-                       END as role
-                ORDER BY e.start_time
-            """, {"exact_name": exact_name})])
-            
-            orgs = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (p:NhanVat)-[r]-(o:ToChuc) 
-                WHERE p.name = $exact_name 
-                RETURN o.name as name, o.type as type, o.founded_year as founded_year,
-                    CASE type(r)
-                        WHEN 'THUOC_VE' THEN 'Thành viên'
-                        WHEN 'LANH_DAO' THEN 'Lãnh đạo'
-                        WHEN 'THAM_GIA' THEN 'Tham gia'
-                        WHEN 'SANG_LAP' THEN 'Sáng lập'
-                        ELSE type(r)
-                    END as role
-            """, {"exact_name": exact_name})])
-            
-            countries = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (p:NhanVat)-[r]-(c:QuocGia) 
-                WHERE p.name = $exact_name 
-                RETURN c.name as name, type(r) as relation,
-                    CASE type(r)
-                        WHEN 'DAI_DIEN_CHO' THEN 'Đại diện cho'
-                        WHEN 'DUNG_DAU' THEN 'Lãnh đạo'
-                        WHEN 'THUOC_QUOC_GIA' THEN 'Thuộc quốc gia'
-                        ELSE type(r)
-                    END as role
-            """, {"exact_name": exact_name})])
-            
-            return render_template('person/detail.html', person=dict(p["p"]), events=events, organizations=orgs, countries=countries)
+            data = parse_neo4j_data(dict(result))
+            return render_template('person/detail.html', 
+                                   person=data.get('person', {}), 
+                                   events=data.get('events', []), 
+                                   organizations=data.get('organizations', []), 
+                                   countries=data.get('countries', []))
             
         elif entity_type == 'event':
-            e = session.run("MATCH (e:SuKien) WHERE toLower(e.name) = $name RETURN e", params).single()
-            if not e: return "Không tìm thấy", 404
+            query = CypherQueries.get_event_detail_with_relations()
+            result = session.run(query, params).single()
+            if not result: return "Không tìm thấy", 404
             
-            exact_name = dict(e["e"]).get('name')
-            
-            persons = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (e:SuKien)-[r]-(p:NhanVat) 
-                WHERE e.name = $exact_name
-                RETURN p.name as name, p.vai_tro as vai_tro, type(r) as relation,
-                    CASE type(r)
-                        WHEN 'CHI_HUY' THEN 'Chỉ huy'
-                        WHEN 'CHI_DAO' THEN 'Chỉ đạo'
-                        WHEN 'THAM_GIA' THEN 'Tham gia'
-                        WHEN 'KHOI_XUONG' THEN 'Khởi xướng'
-                        ELSE type(r)
-                    END as role
-            """, {"exact_name": exact_name})])
-
-            periods = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (e:SuKien)-[r:THUOC_THOI_KY]->(g:ThoiKy) 
-                WHERE e.name = $exact_name
-                RETURN g.name as name, g.start_year as start_year, g.end_year as end_year
-            """, {"exact_name": exact_name})])
-        
-            orgs = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (o:ToChuc)-[r]-(e:SuKien)
-                WHERE e.name = $exact_name
-                RETURN o.name as name, o.type as type, o.founded_year as founded_year, 
-                    CASE type(r)
-                        WHEN 'THAM_GIA_SU_KIEN' THEN 'Tham gia'
-                        WHEN 'TO_CHUC' THEN 'Tổ chức'
-                        ELSE type(r)
-                    END as role
-            """, {"exact_name": exact_name})])
-            return render_template('event/detail.html', event=dict(e["e"]), persons=persons, organizations=orgs, periods=periods)
+            data = parse_neo4j_data(dict(result))
+            return render_template('event/detail.html', 
+                                   event=data.get('event', {}), 
+                                   persons=data.get('persons', []), 
+                                   organizations=data.get('organizations', []), 
+                                   periods=data.get('periods', []))
             
         elif entity_type == 'organization':
-            o = session.run("MATCH (o:ToChuc) WHERE toLower(o.name) = $name RETURN o", params).single()
-            if not o: return "Không tìm thấy", 404
-            exact_name = dict(o["o"]).get('name') 
+            query = CypherQueries.get_organization_detail_with_relations()
+            result = session.run(query, params).single()
+            if not result: return "Không tìm thấy", 404
             
-            members = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (p:NhanVat)-[r]-(o:ToChuc) 
-                WHERE o.name = $exact_name 
-                RETURN p.name as name, p.vai_tro as vai_tro, p.chuc_vu as chuc_vu,
-                    CASE type(r)
-                        WHEN 'THUOC_VE' THEN 'Thành viên'
-                        WHEN 'LANH_DAO' THEN 'Lãnh đạo'
-                        WHEN 'THAM_GIA' THEN 'Tham gia'
-                        WHEN 'SANG_LAP' THEN 'Người sáng lập'
-                        ELSE type(r)
-                    END as role
-            """, {"exact_name": exact_name})])
-            
-            countries = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (o:ToChuc)-[r]-(c:QuocGia)
-                WHERE o.name = $exact_name
-                RETURN c.name as name, c.cap_do as cap_do,
-                    CASE type(r)
-                        WHEN 'DAI_DIEN_CHO' THEN 'Đại diện cho'
-                        WHEN 'DUNG_DAU' THEN 'Lãnh đạo'
-                        WHEN 'THUOC_QUOC_GIA' THEN 'Trực thuộc'
-                        WHEN 'HO_TRO' THEN 'Hỗ trợ'
-                        ELSE type(r)
-                    END as role
-            """, {"exact_name": exact_name})])
-            return render_template('organization/detail.html', organization=dict(o["o"]), members=members, countries=countries)
+            data = parse_neo4j_data(dict(result))
+            return render_template('organization/detail.html', 
+                                   organization=data.get('organization', {}), 
+                                   members=data.get('members', []), 
+                                   countries=data.get('countries', []))
 
         elif entity_type == 'treaty':
-            t = session.run("MATCH (t:HiepDinh) WHERE toLower(t.name) = $name RETURN t", params).single()
-            if not t: return "Không tìm thấy", 404
-            exact_name = dict(t["t"]).get('name') 
-
-            # Lấy người ký, quốc gia tham gia và sự kiện liên quan của Hiệp Định
-            persons = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (t:HiepDinh)-[r]-(p:NhanVat) WHERE t.name = $exact_name 
-                RETURN p.name as name, CASE type(r) WHEN 'KY_KET' THEN 'Người ký' WHEN 'DAM_PHAN' THEN 'Người đàm phán' ELSE type(r) END as role
-            """, {"exact_name": exact_name})])
-
-            countries = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (t:HiepDinh)-[r]-(c:QuocGia) WHERE t.name = $exact_name 
-                RETURN c.name as name, CASE type(r) WHEN 'THAM_GIA_KY' THEN 'Tham gia ký kết' ELSE type(r) END as role
-            """, {"exact_name": exact_name})])
-
-            events = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (t:HiepDinh)-[r]-(e:SuKien) WHERE t.name = $exact_name 
-                RETURN e.name as name, e.start_time as start_time, CASE type(r) WHEN 'KET_THUC_SU_KIEN' THEN 'Kết thúc sự kiện' ELSE type(r) END as role
-            """, {"exact_name": exact_name})])
-
-            return render_template('treaty/detail.html', treaty=dict(t["t"]), persons=persons, countries=countries, events=events)
+            query = CypherQueries.get_treaty_detail_with_relations()
+            result = session.run(query, params).single()
+            if not result: return "Không tìm thấy", 404
+            
+            data = parse_neo4j_data(dict(result))
+            return render_template('treaty/detail.html', 
+                                   treaty=data.get('treaty', {}), 
+                                   persons=data.get('persons', []), 
+                                   countries=data.get('countries', []), 
+                                   events=data.get('events', []))
             
         elif entity_type == 'country':
-            c = session.run("MATCH (c:QuocGia) WHERE toLower(c.name) = $name RETURN c", params).single()
-            if not c: return "Không tìm thấy", 404
-            exact_name = dict(c["c"]).get('name') 
-
-            # Lấy lãnh đạo, sự kiện và tổ chức của Quốc gia
-            persons = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (c:QuocGia)-[r]-(p:NhanVat) WHERE c.name = $exact_name 
-                RETURN p.name as name, CASE type(r) WHEN 'DUNG_DAU' THEN 'Lãnh đạo' WHEN 'DAI_DIEN_CHO' THEN 'Đại diện' ELSE type(r) END as role
-            """, {"exact_name": exact_name})])
-
-            events = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (c:QuocGia)-[r]-(e:SuKien) WHERE c.name = $exact_name 
-                RETURN e.name as name, e.start_time as start_time, CASE type(r) WHEN 'THAM_GIA' THEN 'Tham gia' WHEN 'KHOI_XUONG' THEN 'Khởi xướng' ELSE type(r) END as role
-            """, {"exact_name": exact_name})])
-
-            orgs = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (c:QuocGia)-[r]-(o:ToChuc) WHERE c.name = $exact_name 
-                RETURN o.name as name, CASE type(r) WHEN 'THUOC_QUOC_GIA' THEN 'Tổ chức trực thuộc' ELSE type(r) END as role
-            """, {"exact_name": exact_name})])
-
-            return render_template('country/detail.html', country=dict(c["c"]), persons=persons, events=events, organizations=orgs)
+            query = CypherQueries.get_country_detail_with_relations()
+            result = session.run(query, params).single()
+            if not result: return "Không tìm thấy", 404
+            
+            data = parse_neo4j_data(dict(result))
+            return render_template('country/detail.html', 
+                                   country=data.get('country', {}), 
+                                   persons=data.get('persons', []), 
+                                   events=data.get('events', []), 
+                                   organizations=data.get('organizations', []))
             
         elif entity_type == 'period':
-            g = session.run("MATCH (g:ThoiKy) WHERE toLower(g.name) = $name RETURN g", params).single()
-            if not g: return "Không tìm thấy", 404
+            query = CypherQueries.get_period_detail_with_relations()
+            result = session.run(query, params).single()
+            if not result: return "Không tìm thấy", 404
             
-            exact_name = dict(g["g"]).get('name')
+            data = parse_neo4j_data(dict(result))
             
-            events = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (e:SuKien)-[r:THUOC_THOI_KY]-(g:ThoiKy) 
-                WHERE g.name = $exact_name 
-                RETURN e.name as name, e.start_time as start_time, e.end_time as end_time, e.locations as locations
-                ORDER BY e.start_time
-            """, {"exact_name": exact_name})])
-
-            persons = parse_neo4j_data([dict(r) for r in session.run("""
-                MATCH (p:NhanVat)-[r:THUOC_THOI_KY]->(g:ThoiKy)
-                WHERE g.name = $exact_name
-                RETURN p.name as name, p.vai_tro as vai_tro
-                ORDER BY p.name
-            """, {"exact_name": exact_name})])
-
-            return render_template('period/detail.html', period=dict(g["g"]), events=events, persons=persons)
+            # Sắp xếp lại danh sách cho đẹp mắt giống như trước đây
+            events_sorted = sorted(data.get('events', []), key=lambda x: str(x.get('start_time', '')))
+            persons_sorted = sorted(data.get('persons', []), key=lambda x: str(x.get('name', '')))
+            
+            return render_template('period/detail.html', 
+                                   period=data.get('period', {}), 
+                                   events=events_sorted, 
+                                   persons=persons_sorted)
 
         return "Không tìm thấy", 404
 
@@ -630,32 +542,38 @@ def get_stats():
         return jsonify({"success": True, "stats": stats})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
-
-@user_bp.route('/api/search')
-def search():
-    keyword = request.args.get('q', '')
-    if len(keyword) < 2: return jsonify({"success": True, "results": []})
-    try:
-        with neo4j_service.driver.session() as session:
-            results = [dict(r) for r in session.run(CypherQueries.search_by_keyword(keyword))]
-        return jsonify({"success": True, "results": parse_neo4j_data(results)})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
-
-@user_bp.route('/api/suggestions')
-def get_suggestions():
-    keyword = request.args.get('q', '').strip()
-    if len(keyword) < 2: return jsonify({"success": True, "suggestions": []})
+    
+# ==================== API LẤY NGẪU NHIÊN ====================
+@user_bp.route('/api/persons/random')
+def random_persons():
     try:
         with neo4j_service.driver.session() as session:
             query = """
-                MATCH (n) 
-                WHERE toLower(n.name) CONTAINS toLower($k) 
-                RETURN CASE WHEN n.name IS NOT NULL THEN n.name ELSE n.name END as name, 
-                       labels(n)[0] as type 
-                LIMIT 10
+                MATCH (p:NhanVat)
+                WITH p, rand() as r
+                ORDER BY r
+                LIMIT 6
+                RETURN p
             """
-            suggestions = [dict(r) for r in session.run(query, {"k": keyword})]
-        return jsonify({"success": True, "suggestions": parse_neo4j_data(suggestions)})
+            result = session.run(query)
+            persons = [parse_neo4j_data(dict(record["p"])) for record in result]
+            return jsonify({"success": True, "persons": persons})
     except Exception as e:
-        return jsonify({"success": False, "suggestions": []})
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@user_bp.route('/api/events/random')
+def random_events():
+    try:
+        with neo4j_service.driver.session() as session:
+            query = """
+                MATCH (e:SuKien)
+                WITH e, rand() as r
+                ORDER BY r
+                LIMIT 6
+                RETURN e
+            """
+            result = session.run(query)
+            events = [parse_neo4j_data(dict(record["e"])) for record in result]
+            return jsonify({"success": True, "events": events})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

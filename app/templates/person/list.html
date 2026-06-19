@@ -135,6 +135,23 @@
         background: #f9f9f9;
     }
 
+    /* CSS Cho cảnh báo lỗi Database */
+    .db-error-alert {
+        background: #fdf2f2;
+        border: 2px dashed #e74c3c;
+        color: #c0392b;
+        padding: 40px 20px;
+        border-radius: 12px;
+        text-align: center;
+        margin: 40px auto;
+        max-width: 600px;
+    }
+    .db-error-alert i {
+        font-size: 40px;
+        margin-bottom: 15px;
+        color: #e74c3c;
+    }
+
     @media (max-width: 600px) {
         .person-grid {
             grid-template-columns: 1fr;
@@ -158,8 +175,15 @@
     </div>
 
     <div id="personContainer">
-        {% if periods %}
-            {% for period in periods %}
+        {% if db_error or error %}
+            <div class="db-error-alert">
+                <i class="fas fa-database"></i>
+                <h3 style="margin-top: 0;">Lỗi kết nối cơ sở dữ liệu</h3>
+                <p style="font-size: 16px;">Đang gián đoạn kết nối đến CSDL. Vui lòng thử lại sau.</p>
+            </div>
+            
+        {% elif persons %}
+            {% for period in persons %}
                 {% if period.persons and period.persons|length > 0 %}
                 <div class="period-section" data-period-id="{{ loop.index }}">
                     <h2 class="period-title">
@@ -229,6 +253,10 @@
                 }
             }
         });
+
+        // Nếu có lỗi CSDL thì không chạy logic phân trang và tìm kiếm
+        const hasDbError = document.querySelector('.db-error-alert');
+        if (hasDbError) return;
 
         // --- 2. CẤU HÌNH PHÂN TRANG ---
         const itemsPerPage = 6; // Đặt số lượng nhân vật hiển thị tối đa mỗi trang (có thể chỉnh lại)
